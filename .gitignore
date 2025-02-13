@@ -1,3 +1,5 @@
 slurm*
 local_*
 update_julia.out
+Manifest.toml
+output/
