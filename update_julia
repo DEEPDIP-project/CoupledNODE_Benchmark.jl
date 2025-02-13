@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=julia_update
-#SBATCH --partition=gpu
+#SBATCH --partition=gpu_a100
 #SBATCH --time=00:20:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
