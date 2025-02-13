@@ -3,16 +3,8 @@ function getdatafile(outdir, nles, filter, seed)
     joinpath(outdir, "data", splatfileparts(; seed = repr(seed), filter, nles) * ".jld2")
 end
 
-"Create data files."
-createdata(; params, seeds, outdir, taskid, backend) =
-    for (iseed, seed) in enumerate(seeds)
-        if isnothing(taskid) || iseed == taskid
-            @info "Creating DNS trajectory for seed $(repr(seed))"
-        else
-            # Each task does one initial condition
-            @info "Skipping seed $(repr(seed)) for task $taskid"
-            continue
-        end
+function createdata(; params, seed, outdir, backend)
+        @info "Creating DNS trajectory for seed $(repr(seed))"
         filenames = []
         for (nles, Φ) in Iterators.product(params.nles, params.filters)
             f = getdatafile(outdir, nles, Φ, seed)
@@ -22,7 +14,7 @@ createdata(; params, seeds, outdir, taskid, backend) =
         end
         if isfile(filenames[1])
             @info "Data file $(filenames[1]) already exists. Skipping."
-            continue
+            return
         end
         data = create_les_data(;
             params..., rng = Xoshiro(seed), filenames, Δt = params.Δt, backend = backend)
@@ -30,7 +22,7 @@ createdata(; params, seeds, outdir, taskid, backend) =
             data[1].comptime/60,
             length(data[1].t),
             Base.summarysize(data)*1e-9,)
-    end
+end
 
 function getpriorfile(outdir, closure_name, nles, filter)
     joinpath(

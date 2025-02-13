@@ -25,8 +25,15 @@ function load_config()
         @info "Reading configuration file from ENV"
         return NS.read_config(ENV["CONF_FILE"])
     catch
-        @info "Reading configuration file from default"
-        return NS.read_config("configs/conf_2.yaml")
+        try
+ 	    if length(ARGS) > 0
+                @info "Reading configuration file from argument"
+                return NS.read_config(ARGS[1])
+	    end	
+        catch
+            @info "Reading configuration file from default"
+            return NS.read_config("configs/conf_2.yaml")
+        end
     end
 end
 conf = load_config()
@@ -71,9 +78,11 @@ isslurm = haskey(ENV, "SLURM_JOB_ID")
 if isslurm
     jobid = parse(Int, ENV["SLURM_JOB_ID"])
     taskid = parse(Int, ENV["SLURM_ARRAY_TASK_ID"])
+    numtasks = parse(Int, ENV["SLURM_ARRAY_TASK_COUNT"])
     logfile = "job=$(jobid)_task=$(taskid)_$(Dates.now()).out"
 else
-    taskid = nothing
+    taskid = 1
+    numtasks = 1
     logfile = "log_$(Dates.now()).out"
 end
 logfile = joinpath(logdir, logfile)
@@ -173,7 +182,11 @@ dns_seeds_test = dns_seeds[ntrajectory:ntrajectory]
 
 # Create data
 docreatedata = conf["docreatedata"]
-docreatedata && createdata(; params, seeds = dns_seeds, outdir, taskid, backend)
+for i = 1:ntrajectory
+	if i%numtasks == taskid - 1
+		docreatedata && createdata(; params, seed = dns_seeds[i], outdir, backend)
+	end
+end
 @info "Data generated"
 
 # Computational time
@@ -245,6 +258,8 @@ end
 # Plot training progress (for a validation data batch).
 
 # Train
+for i = 1:ntrajectory
+	if i%numtasks == taskid -1
 let
     dotrain = conf["priori"]["dotrain"]
     nepoch = conf["priori"]["nepoch"]
@@ -253,7 +268,7 @@ let
         priorseed = seeds.prior,
         dns_seeds_train,
         dns_seeds_valid,
-        taskid,
+        taskid = i,
         outdir,
         plotdir,
         closure,
@@ -266,6 +281,8 @@ let
         plot_train = conf["priori"]["plot_train"],
         nepoch,
     )
+end
+end
 end
 
 # Load learned parameters and training times
@@ -333,6 +350,8 @@ nprojectorders = length(projectorders)
 @assert nprojectorders == 1 "Only DCF should be done"
 
 # Train
+for i = 1:ntrajectory
+	if i%numtasks == taskid -1
 let
     dotrain = conf["posteriori"]["dotrain"]
     nepoch = conf["posteriori"]["nepoch"]
@@ -341,7 +360,7 @@ let
         projectorders,
         outdir,
         plotdir,
-        taskid,
+        taskid = i,
         postseed = seeds.post,
         dns_seeds_train,
         dns_seeds_valid,
@@ -356,6 +375,8 @@ let
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
     )
+end
+end
 end
 
 # Load learned parameters and training times
