@@ -111,8 +111,11 @@ function trainprior(;
         if loadcheckpoint && isfile(checkfile)
             callbackstate, trainstate, epochs_trained = CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
+            # set the correct device 
+            callbackstate = device(callbackstate)
+            trainstate = device(trainstate)
             # load the best parameters so far as starting point
-            θ = device(callbackstate.θmin)
+            θ = callbackstate.θmin
         else
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
@@ -132,10 +135,11 @@ function trainprior(;
                 nepochs = nepochs_left,
                 alg = opt, cpu = !CUDA.functional(), callback = callback)
         end
-        save_object(checkfile, (callbackstate = callbackstate, trainstate = trainstate))
+        # Save on the CPU
+        save_object(checkfile, (callbackstate = adapt(Array,callbackstate), trainstate = adapt(Array,trainstate)))
 
         θ = callbackstate.θmin # Use best θ instead of last θ
-        results = (; θ = Array(θ), comptime = time() - starttime,
+        results = (; θ = θ, comptime = time() - starttime,
             callbackstate.lhist_val, callbackstate.lhist_nomodel)
         save_object(priorfile, results)
     end
