@@ -17,16 +17,11 @@ module load juliaup/1.14.5-GCCcore-12.3.0
 # - gpu_h100: 16 cores
 # https://servicedesk.surf.nl/wiki/display/WIKI/Snellius+partitions+and+accounting
 
-mkdir -p /scratch-shared/$USER
-
 echo "Slurm job ID: $SLURM_JOB_ID"
 echo "Slurm array task ID: $SLURM_ARRAY_TASK_ID"
 
 export CONF_FILE=$1
 
-cd $HOME/CoupledNODE_Benchmark.jl/Benchmark
-
-srun --unbuffered julia --project -t auto -e 'using Pkg; Pkg.update(); Pkg.resolve()'
-echo "\n***************\nUpdate done"
+#srun --unbuffered julia --project -t auto -e 'using Pkg; Pkg.update(); Pkg.resolve()'
+#echo "\n***************\nUpdate done"
 julia --project -t auto benchmark.jl
-
