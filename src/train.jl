@@ -141,6 +141,9 @@ function trainprior(;
         θ = callbackstate.θmin # Use best θ instead of last θ
         results = (; θ = θ, comptime = time() - starttime,
             callbackstate.lhist_val, callbackstate.lhist_nomodel)
+        @warn "***********CALLBACK STRUCTURE***********"
+        @warn callbackstate
+        @warn typeof(callbackstate)
         save_object(priorfile, results)
     end
     @info "Finished a-priori training."
