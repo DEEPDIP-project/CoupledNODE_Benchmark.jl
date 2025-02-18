@@ -103,14 +103,18 @@ function trainprior(;
             io_train[itotal]; batchsize = batchsize,
             rng = Random.Xoshiro(dns_seeds_train[itotal]), device = device)
         train_data_priori = dataloader_prior()
-        @info device
-        @info typeof(train_data_priori)
+        @info "Using closure $(closure_name) on device $(device))"
         loss_priori_lux(closure, θ, st, train_data_priori)
         loss = loss_priori_lux
 
         if loadcheckpoint && isfile(checkfile)
             callbackstate, trainstate, epochs_trained = CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
+            # Put back the data to the correct device 
+            if CUDA.functional()
+                callbackstate = (θmin = callbackstate.θmin, lhist_val = callbackstate.lhist_val, loss_min = callbackstate.loss_min, lhist_train = callbackstate.lhist_train, lhist_nomodel = callbackstate.lhist_nomodel)
+                trainstate = trainstate |> Lux.gpu_device()
+            end
         else
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
@@ -130,7 +134,8 @@ function trainprior(;
                 nepochs = nepochs_left,
                 alg = opt, cpu = !CUDA.functional(), callback = callback)
         end
-        save_object(checkfile, (callbackstate = callbackstate, trainstate = trainstate))
+        # Save on the CPU
+        CoupledNODE.save_checkpoint(checkfile, callbackstate, trainstate)
 
         θ = callbackstate.θmin # Use best θ instead of last θ
         results = (; θ = Array(θ), comptime = time() - starttime,

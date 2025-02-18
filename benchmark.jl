@@ -38,15 +38,6 @@ function load_config()
 end
 conf = load_config()
 
-#global conf
-#conf = nothing
-#try
-#    conf = NS.read_config(ENV["CONF_FILE"])
-#    @info "Reading configuration file from ENV"
-#catch
-#    @info "Reading configuration file from default"
-#    conf = NS.read_config("configs/conf.yaml")
-#end
 ########################################################################## #src
 
 # Choose where to put output
@@ -284,6 +275,9 @@ let
 end
 end
 end
+
+#exit the program here
+exit()
 
 # Load learned parameters and training times
 priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
