@@ -236,6 +236,11 @@ function trainpost(;
         if loadcheckpoint && isfile(checkfile)
             callbackstate, trainstate, epochs_trained = CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
+            # Put back the data to the correct device 
+            if CUDA.functional()
+                callbackstate = (θmin = callbackstate.θmin, lhist_val = callbackstate.lhist_val, loss_min = callbackstate.loss_min, lhist_train = callbackstate.lhist_train, lhist_nomodel = callbackstate.lhist_nomodel)
+                trainstate = trainstate |> Lux.gpu_device()
+            end
         else
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
@@ -253,7 +258,8 @@ function trainpost(;
                 closure, θ, st, dataloader_post, loss; tstate = trainstate, nepochs = nepochs_left,
                 alg = opt, cpu = !CUDA.functional(), callback = callback)
         end
-        save_object(checkfile, (callbackstate = callbackstate, trainstate = trainstate))
+        # Save on the CPU
+        CoupledNODE.save_checkpoint(checkfile, callbackstate, trainstate)
 
         θ = callbackstate.θmin # Use best θ instead of last θ
         results = (; θ = Array(θ), comptime = time() - starttime,
