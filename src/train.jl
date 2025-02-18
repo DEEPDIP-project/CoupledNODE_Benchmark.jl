@@ -116,6 +116,7 @@ function trainprior(;
             trainstate = device(trainstate)
             # load the best parameters so far as starting point
             θ = callbackstate.θmin
+            @warn "Theta is type $(typeof(θ))"
         else
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
@@ -136,7 +137,6 @@ function trainprior(;
                 alg = opt, cpu = !CUDA.functional(), callback = callback)
         end
         # Save on the CPU
-        #save_object(checkfile, (callbackstate = adapt(Array,callbackstate), trainstate = adapt(Array,trainstate)))
         CoupledNODE.save_checkpoint(checkfile, callbackstate, trainstate)
 
         θ = callbackstate.θmin # Use best θ instead of last θ
