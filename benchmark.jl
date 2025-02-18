@@ -276,9 +276,6 @@ end
 end
 end
 
-#exit the program here
-exit()
-
 # Load learned parameters and training times
 priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
 θ_cnn_prior = map(p -> copyto!(copy(θ_start), p.θ), priortraining)
