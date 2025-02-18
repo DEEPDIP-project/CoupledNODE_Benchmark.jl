@@ -112,10 +112,10 @@ function trainprior(;
             callbackstate, trainstate, epochs_trained = CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
             # Put back the data to the correct device 
-            callbackstate = device(callbackstate)
-            trainstate = device(trainstate)
-            trainstate = trainstate |> params.backend
-#            trainstate.parameters = device(trainstate.parameters)
+            if CUDA.functional()
+                callbackstate = callbackstate |> Lux.gpu_device()
+                trainstate = trainstate |> Lux.gpu_device()
+            end
         else
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
