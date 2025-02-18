@@ -113,7 +113,7 @@ function trainprior(;
             nepochs_left = nepoch - epochs_trained
             # Put back the data to the correct device 
             if CUDA.functional()
-                callbackstate = callbackstate |> Lux.gpu_device()
+                callbackstate.θ_min = callbackstate.θ_min |> Lux.gpu_device()
                 trainstate = trainstate |> Lux.gpu_device()
             end
         else
