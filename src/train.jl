@@ -111,10 +111,11 @@ function trainprior(;
         if loadcheckpoint && isfile(checkfile)
             callbackstate, trainstate, epochs_trained = CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
-            # set the correct device 
+            # Put back the data to the correct device 
             callbackstate = device(callbackstate)
             trainstate = device(trainstate)
-            trainstate.parameters = device(trainstate.parameters)
+            trainstate = trainstate |> params.backend
+#            trainstate.parameters = device(trainstate.parameters)
         else
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
