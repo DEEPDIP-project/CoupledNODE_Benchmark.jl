@@ -145,13 +145,13 @@ function trainprior(;
     @info "Finished a-priori training."
 end
 
-function getpostfile(outdir, nles, filter, projectorder)
-    joinpath(outdir, "posttraining", splatfileparts(; projectorder, filter, nles) * ".jld2")
+function getpostfile(outdir, closure_name, nles, filter, projectorder)
+    joinpath(outdir, "posttraining", closure_name, splatfileparts(; projectorder, filter, nles) * ".jld2")
 end
 
 "Load a-posteriori training results from correct file names."
-loadpost(outdir, nles, filters, projectorders) = map(
-    splat((nles, Φ, o) -> load_object(getpostfile(outdir, nles, Φ, o))),
+loadpost(outdir, closure_name, nles, filters, projectorders) = map(
+    splat((nles, Φ, o) -> load_object(getpostfile(outdir, closure_name, nles, Φ, o))),
     Iterators.product(nles, filters, projectorders)
 )
 
@@ -167,6 +167,7 @@ function trainpost(;
         dns_seeds_valid,
         nunroll,
         closure,
+        closure_name,
         θ_start,
         loadcheckpoint = true,
         st,
@@ -192,7 +193,7 @@ function trainpost(;
             continue
         end
         starttime = time()
-        postfile = getpostfile(outdir, nles, Φ, projectorder)
+        postfile = getpostfile(outdir, closure_name, nles, Φ, projectorder)
         ispath(dirname(postfile)) || mkpath(dirname(postfile))
         figdir = joinpath(plotdir, "posttraining")
         ispath(figdir) || mkpath(figdir)
@@ -236,6 +237,11 @@ function trainpost(;
         if loadcheckpoint && isfile(checkfile)
             callbackstate, trainstate, epochs_trained = CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
+            # Put back the data to the correct device 
+            if CUDA.functional()
+                callbackstate = (θmin = callbackstate.θmin, lhist_val = callbackstate.lhist_val, loss_min = callbackstate.loss_min, lhist_train = callbackstate.lhist_train, lhist_nomodel = callbackstate.lhist_nomodel)
+                trainstate = trainstate |> Lux.gpu_device()
+            end
         else
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
@@ -253,7 +259,8 @@ function trainpost(;
                 closure, θ, st, dataloader_post, loss; tstate = trainstate, nepochs = nepochs_left,
                 alg = opt, cpu = !CUDA.functional(), callback = callback)
         end
-        save_object(checkfile, (callbackstate = callbackstate, trainstate = trainstate))
+        # Save on the CPU
+        CoupledNODE.save_checkpoint(checkfile, callbackstate, trainstate)
 
         θ = callbackstate.θmin # Use best θ instead of last θ
         results = (; θ = Array(θ), comptime = time() - starttime,

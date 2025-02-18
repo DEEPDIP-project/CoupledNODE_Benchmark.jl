@@ -276,9 +276,6 @@ end
 end
 end
 
-#exit the program here
-exit()
-
 # Load learned parameters and training times
 priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
 θ_cnn_prior = map(p -> copyto!(copy(θ_start), p.θ), priortraining)
@@ -360,6 +357,7 @@ let
         dns_seeds_valid,
         nunroll = conf["posteriori"]["nunroll"],
         closure,
+        closure_name,
         θ_start = θ_cnn_prior,
         st,
         opt = eval(Meta.parse(conf["posteriori"]["opt"])),
@@ -375,7 +373,7 @@ end
 
 # Load learned parameters and training times
 
-posttraining = loadpost(outdir, params.nles, params.filters, projectorders)
+posttraining = loadpost(outdir, closure_name, params.nles, params.filters, projectorders)
 θ_cnn_post = map(p -> copyto!(copy(θ_start), p.θ), posttraining)
 @info "" θ_cnn_post .|> extrema # Check that parameters are within reasonable bounds
 
