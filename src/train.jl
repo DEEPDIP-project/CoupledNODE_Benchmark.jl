@@ -136,7 +136,8 @@ function trainprior(;
                 alg = opt, cpu = !CUDA.functional(), callback = callback)
         end
         # Save on the CPU
-        save_object(checkfile, (callbackstate = adapt(Array,callbackstate), trainstate = adapt(Array,trainstate)))
+        #save_object(checkfile, (callbackstate = adapt(Array,callbackstate), trainstate = adapt(Array,trainstate)))
+        save_object(checkfile, (callbackstate = callbackstate, trainstate = trainstate))
 
         θ = callbackstate.θmin # Use best θ instead of last θ
         results = (; θ = θ, comptime = time() - starttime,
