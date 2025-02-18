@@ -276,7 +276,8 @@ end
 end
 end
 
-exit
+#exit the program here
+exit()
 
 # Load learned parameters and training times
 priortraining = loadprior(outdir, closure_name, params.nles, params.filters)

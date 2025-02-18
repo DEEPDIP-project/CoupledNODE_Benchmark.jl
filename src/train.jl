@@ -140,10 +140,9 @@ function trainprior(;
         CoupledNODE.save_checkpoint(checkfile, callbackstate, trainstate)
 
         θ = callbackstate.θmin # Use best θ instead of last θ
-        results = (; θ = θ, comptime = time() - starttime,
+        results = (; θ = Array(θ), comptime = time() - starttime,
             callbackstate.lhist_val, callbackstate.lhist_nomodel)
         @warn "***********CALLBACK STRUCTURE***********"
-        @warn callbackstate
         @warn typeof(callbackstate)
         save_object(priorfile, results)
     end
