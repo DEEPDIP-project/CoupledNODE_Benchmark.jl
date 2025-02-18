@@ -114,9 +114,7 @@ function trainprior(;
             # set the correct device 
             callbackstate = device(callbackstate)
             trainstate = device(trainstate)
-            # load the best parameters so far as starting point
-            θ = callbackstate.θmin
-            @warn "Theta is type $(typeof(θ))"
+            trainstate.parameters = device(trainstate.parameters)
         else
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
