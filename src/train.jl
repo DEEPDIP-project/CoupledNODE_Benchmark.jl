@@ -103,8 +103,7 @@ function trainprior(;
             io_train[itotal]; batchsize = batchsize,
             rng = Random.Xoshiro(dns_seeds_train[itotal]), device = device)
         train_data_priori = dataloader_prior()
-        @info device
-        @info typeof(train_data_priori)
+        @info "Using closure $(closure_name) on device $(device))"
         loss_priori_lux(closure, θ, st, train_data_priori)
         loss = loss_priori_lux
 
@@ -141,8 +140,6 @@ function trainprior(;
         θ = callbackstate.θmin # Use best θ instead of last θ
         results = (; θ = Array(θ), comptime = time() - starttime,
             callbackstate.lhist_val, callbackstate.lhist_nomodel)
-        @warn "***********CALLBACK STRUCTURE***********"
-        @warn typeof(callbackstate)
         save_object(priorfile, results)
     end
     @info "Finished a-priori training."
