@@ -145,13 +145,13 @@ function trainprior(;
     @info "Finished a-priori training."
 end
 
-function getpostfile(outdir, nles, filter, projectorder)
-    joinpath(outdir, "posttraining", splatfileparts(; projectorder, filter, nles) * ".jld2")
+function getpostfile(outdir, closure_name, nles, filter, projectorder)
+    joinpath(outdir, "posttraining", closure_name, splatfileparts(; projectorder, filter, nles) * ".jld2")
 end
 
 "Load a-posteriori training results from correct file names."
-loadpost(outdir, nles, filters, projectorders) = map(
-    splat((nles, Φ, o) -> load_object(getpostfile(outdir, nles, Φ, o))),
+loadpost(outdir, closure_name, nles, filters, projectorders) = map(
+    splat((nles, Φ, o) -> load_object(getpostfile(outdir, closure_name, nles, Φ, o))),
     Iterators.product(nles, filters, projectorders)
 )
 
@@ -167,6 +167,7 @@ function trainpost(;
         dns_seeds_valid,
         nunroll,
         closure,
+        closure_name,
         θ_start,
         loadcheckpoint = true,
         st,
@@ -192,7 +193,7 @@ function trainpost(;
             continue
         end
         starttime = time()
-        postfile = getpostfile(outdir, nles, Φ, projectorder)
+        postfile = getpostfile(outdir, closure_name, nles, Φ, projectorder)
         ispath(dirname(postfile)) || mkpath(dirname(postfile))
         figdir = joinpath(plotdir, "posttraining")
         ispath(figdir) || mkpath(figdir)
