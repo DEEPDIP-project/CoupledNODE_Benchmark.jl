@@ -397,7 +397,7 @@ with_theme(; palette) do
                 xticklabelsvisible = iorder == 2,
             )
             for (ifil, Φ) in enumerate(params.filters)
-                postfile = Benchmark.getpostfile(outdir, nles, Φ, projectorder)
+                postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorder)
                 check = namedtupleload(postfile)
                 # print the keys of the checkpoint
                 (; lhist_val) = check[1]
