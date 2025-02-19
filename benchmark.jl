@@ -21,19 +21,13 @@ using Lux
 using LuxCUDA
 NS = Base.get_extension(CoupledNODE, :NavierStokes)
 function load_config()
-    try
-        @info "Reading configuration file from ENV"
+    @info "Reading configuration file"
+    if haskey(ENV, "CONF_FILE")
         return NS.read_config(ENV["CONF_FILE"])
-    catch
-        try
- 	    if length(ARGS) > 0
-                @info "Reading configuration file from argument"
-                return NS.read_config(ARGS[1])
-	    end	
-        catch
-            @info "Reading configuration file from default"
-            return NS.read_config("configs/conf_2.yaml")
-        end
+    elseif length(ARGS) > 0
+        return NS.read_config(ARGS[1])
+    else
+        return NS.read_config("configs/conf_2.yaml")
     end
 end
 conf = load_config()
@@ -757,6 +751,7 @@ with_theme(; palette) do
                 ylabelvisible = iorder == 1,
                 yticksvisible = iorder == 1,
                 yticklabelsvisible = iorder == 1,
+                aspect = DataAspect(),
             )
             # xlims!(ax, (1e-2, 5.0))
             # xlims!(ax, (0.0, 1.0))
