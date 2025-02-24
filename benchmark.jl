@@ -156,7 +156,6 @@ conf["params"]["backend"] = deepcopy(backend)
 
 # Parameters
 params = NS.load_params(conf)
-@info params
 
 # DNS seeds
 ntrajectory = conf["ntrajectory"]
@@ -914,15 +913,19 @@ let
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         ustart = selectdim(sample.u, ndims(sample.u), 1) |> collect
         t = sample.t
-        solve(ustart, tlims, closure_model, θ) =
-            solve_unsteady(;
+
+        function solve(ustart, tlims, closure_model, θ)
+            result = solve_unsteady(;
                 setup = (; setup..., closure_model),
                 ustart = device(ustart),
                 tlims,
                 method = RKProject(params.method, projectorder),
                 psolver,
                 θ,
-            )[1].u .|> Array
+            )[1].u |> Array
+            #@info result
+            #Array(result)
+        end
         t1 = t[1]
         for i in eachindex(times)
             # Only first times for First
@@ -946,17 +949,18 @@ let
 
             # Compute fields
             utimes[i].ref[I] = selectdim(sample.u, ndims(sample.u), it) |> collect
-            utimes[i].nomodel[I,:] = solve(getprev(i, :nomodel), tlims, nothing, nothing)
-            utimes[i].cnn_prior[I,:] = solve(
+            utimes[i].nomodel[I] = solve(getprev(i, :nomodel), tlims, nothing, nothing)
+            #utimes[i].nomodel[I,:] = solve(getprev(i, :nomodel), tlims, nothing, nothing)
+            utimes[i].cnn_prior[I] = solve(
                 getprev(i, :cnn_prior),
                 tlims,
-                wrappedclosure(closure, setup),
+                wrappedclosure(closure_INS, setup),
                 device(θ_cnn_prior[igrid, ifil]),
             )
-            utimes[i].cnn_post[I,:] = solve(
+            utimes[i].cnn_post[I] = solve(
                 getprev(i, :cnn_post),
                 tlims,
-                wrappedclosure(closure, setup),
+                wrappedclosure(closure_INS, setup),
                 device(θ_cnn_post[I]),
             )
         end
@@ -1082,8 +1086,8 @@ with_theme(; palette) do
                 # Plot lines in both axes
                 for ax in (ax, ax_zoom)
                     lines!(ax, κ, specs[2]; color = Cycled(1), label = "No model")
-                    lines!(ax, κ, specs[4]; color = Cycled(3), label = "CNN (prior)")
-                    lines!(ax, κ, specs[5]; color = Cycled(4), label = "CNN (post)")
+                    lines!(ax, κ, specs[3]; color = Cycled(3), label = "CNN (prior)")
+                    lines!(ax, κ, specs[4]; color = Cycled(4), label = "CNN (post)")
                     lines!(
                         ax,
                         κ,
@@ -1149,6 +1153,7 @@ end
 # Export to PNG, otherwise each volume gets represented
 # as a separate rectangle in the PDF
 # (takes time to load in the article PDF)
+using GLMakie
 GLMakie.activate!()
 
 with_theme(; palette) do
@@ -1238,15 +1243,16 @@ end
 # Plot vorticity
 let
     doplot() || return
-    nles = 64
+    nles = 32
     sample = namedtupleload(getdatafile(outdir, nles, FaceAverage(), dns_seeds_test[1]))
     setup = getsetup(; params, nles)
-    u = sample.u[1] |> device
+    #u = sample.u[1] |> device
+    u = selectdim(sample.u, ndims(sample.u), 1) |> collect |> device
     w = vorticity(u, setup) |> Array |> Observable
     title = sample.t[1] |> string |> Observable
     fig = heatmap(w; axis = (; title))
-    for i = 1:5:1000
-        u = sample.u[i] |> device
+    for i = 1:1:length(sample.t)
+        u = selectdim(sample.u, ndims(sample.u), i) |> collect |> device
         w[] = vorticity(u, setup) |> Array
         title[] = "t = $(round(sample.t[i]; digits = 2))"
         display(fig)
