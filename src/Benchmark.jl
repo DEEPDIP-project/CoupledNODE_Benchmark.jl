@@ -16,8 +16,7 @@ using EnumX
 using LinearAlgebra
 using IncompressibleNavierStokes
 using IncompressibleNavierStokes:
-                                  momentum!, divergence!, project!, apply_bc_u!,
-                                  kinetic_energy!, scalewithvolume!
+    momentum!, divergence!, project!, apply_bc_u!, kinetic_energy!, scalewithvolume!
 using JLD2
 using LoggingExtras
 using Lux
@@ -76,7 +75,7 @@ function getsetup(; params, nles)
         params.Re,
         params.backend,
         params.bodyforce,
-        params.issteadybodyforce
+        params.issteadybodyforce,
     )
 end
 

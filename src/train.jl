@@ -4,56 +4,67 @@ function getdatafile(outdir, nles, filter, seed)
 end
 
 function createdata(; params, seed, outdir, backend)
-        @info "Creating DNS trajectory for seed $(repr(seed))"
-        filenames = []
-        for (nles, Φ) in Iterators.product(params.nles, params.filters)
-            f = getdatafile(outdir, nles, Φ, seed)
-            datadir = dirname(f)
-            ispath(datadir) || mkpath(datadir)
-            push!(filenames, f)
-        end
-        if isfile(filenames[1])
-            @info "Data file $(filenames[1]) already exists. Skipping."
-            return
-        end
-        data = create_les_data(;
-            params..., rng = Xoshiro(seed), filenames, Δt = params.Δt, backend = backend)
-        @info("Trajectory info:",
-            data[1].comptime/60,
-            length(data[1].t),
-            Base.summarysize(data)*1e-9,)
+    @info "Creating DNS trajectory for seed $(repr(seed))"
+    filenames = []
+    for (nles, Φ) in Iterators.product(params.nles, params.filters)
+        f = getdatafile(outdir, nles, Φ, seed)
+        datadir = dirname(f)
+        ispath(datadir) || mkpath(datadir)
+        push!(filenames, f)
+    end
+    if isfile(filenames[1])
+        @info "Data file $(filenames[1]) already exists. Skipping."
+        return
+    end
+    data = create_les_data(;
+        params...,
+        rng = Xoshiro(seed),
+        filenames,
+        Δt = params.Δt,
+        backend = backend,
+    )
+    @info(
+        "Trajectory info:",
+        data[1].comptime / 60,
+        length(data[1].t),
+        Base.summarysize(data) * 1e-9,
+    )
 end
 
 function getpriorfile(outdir, closure_name, nles, filter)
     joinpath(
-        outdir, "priortraining", closure_name, splatfileparts(; filter, nles) * ".jld2")
+        outdir,
+        "priortraining",
+        closure_name,
+        splatfileparts(; filter, nles) * ".jld2",
+    )
 end
 
 "Load a-priori training results from correct file names."
 loadprior(outdir, closure_name, nles, filters) = map(
     splat((nles, Φ) -> load_object(getpriorfile(outdir, closure_name, nles, Φ))),
-    Iterators.product(nles, filters)
+    Iterators.product(nles, filters),
 )
 
 "Train with a-priori loss."
 function trainprior(;
-        params,
-        priorseed,
-        dns_seeds_train,
-        dns_seeds_valid,
-        taskid,
-        outdir,
-        plotdir,
-        closure,
-        closure_name,
-        θ_start,
-        st,
-        opt,
-        batchsize,
-        loadcheckpoint = true,
-        do_plot = false,
-        plot_train = false,
-        nepoch
+    params,
+    priorseed,
+    dns_seeds_train,
+    dns_seeds_valid,
+    taskid,
+    outdir,
+    plotdir,
+    closure,
+    closure_name,
+    θ_start,
+    st,
+    opt,
+    batchsize,
+    loadcheckpoint = true,
+    do_plot = false,
+    plot_train = false,
+    nepoch,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -100,19 +111,29 @@ function trainprior(;
         io_valid = NS.create_io_arrays_priori(data_valid, setup)
         θ = device(copy(θ_start))
         dataloader_prior = NS.create_dataloader_prior(
-            io_train[itotal]; batchsize = batchsize,
-            rng = Random.Xoshiro(dns_seeds_train[itotal]), device = device)
+            io_train[itotal];
+            batchsize = batchsize,
+            rng = Random.Xoshiro(dns_seeds_train[itotal]),
+            device = device,
+        )
         train_data_priori = dataloader_prior()
         @info "Using closure $(closure_name) on device $(device))"
         loss_priori_lux(closure, θ, st, train_data_priori)
         loss = loss_priori_lux
 
         if loadcheckpoint && isfile(checkfile)
-            callbackstate, trainstate, epochs_trained = CoupledNODE.load_checkpoint(checkfile)
+            callbackstate, trainstate, epochs_trained =
+                CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
             # Put back the data to the correct device 
             if CUDA.functional()
-                callbackstate = (θmin = callbackstate.θmin, lhist_val = callbackstate.lhist_val, loss_min = callbackstate.loss_min, lhist_train = callbackstate.lhist_train, lhist_nomodel = callbackstate.lhist_nomodel)
+                callbackstate = (
+                    θmin = callbackstate.θmin,
+                    lhist_val = callbackstate.lhist_val,
+                    loss_min = callbackstate.loss_min,
+                    lhist_train = callbackstate.lhist_train,
+                    lhist_nomodel = callbackstate.lhist_nomodel,
+                )
                 trainstate = trainstate |> Lux.gpu_device()
             end
         else
@@ -121,62 +142,89 @@ function trainprior(;
         end
 
         callbackstate, callback = NS.create_callback(
-            closure, θ, io_valid[itotal], loss, st;
-            callbackstate = callbackstate, batch_size = batchsize,
-            rng = Xoshiro(batchseed), do_plot = do_plot, plot_train = plot_train, figfile = figfile, device = device)
+            closure,
+            θ,
+            io_valid[itotal],
+            loss,
+            st;
+            callbackstate = callbackstate,
+            batch_size = batchsize,
+            rng = Xoshiro(batchseed),
+            do_plot = do_plot,
+            plot_train = plot_train,
+            figfile = figfile,
+            device = device,
+        )
 
         if nepochs_left <= 0
             @info "No epochs left to train."
             continue
         else
             l, trainstate = CoupledNODE.train(
-                closure, θ, st, dataloader_prior, loss; tstate = trainstate,
+                closure,
+                θ,
+                st,
+                dataloader_prior,
+                loss;
+                tstate = trainstate,
                 nepochs = nepochs_left,
-                alg = opt, cpu = !CUDA.functional(), callback = callback)
+                alg = opt,
+                cpu = !CUDA.functional(),
+                callback = callback,
+            )
         end
         # Save on the CPU
         CoupledNODE.save_checkpoint(checkfile, callbackstate, trainstate)
 
         θ = callbackstate.θmin # Use best θ instead of last θ
-        results = (; θ = Array(θ), comptime = time() - starttime,
-            callbackstate.lhist_val, callbackstate.lhist_nomodel)
+        results = (;
+            θ = Array(θ),
+            comptime = time() - starttime,
+            callbackstate.lhist_val,
+            callbackstate.lhist_nomodel,
+        )
         save_object(priorfile, results)
     end
     @info "Finished a-priori training."
 end
 
 function getpostfile(outdir, closure_name, nles, filter, projectorder)
-    joinpath(outdir, "posttraining", closure_name, splatfileparts(; projectorder, filter, nles) * ".jld2")
+    joinpath(
+        outdir,
+        "posttraining",
+        closure_name,
+        splatfileparts(; projectorder, filter, nles) * ".jld2",
+    )
 end
 
 "Load a-posteriori training results from correct file names."
 loadpost(outdir, closure_name, nles, filters, projectorders) = map(
     splat((nles, Φ, o) -> load_object(getpostfile(outdir, closure_name, nles, Φ, o))),
-    Iterators.product(nles, filters, projectorders)
+    Iterators.product(nles, filters, projectorders),
 )
 
 "Train with a-posteriori loss function."
 function trainpost(;
-        params,
-        projectorders,
-        outdir,
-        plotdir,
-        taskid,
-        postseed,
-        dns_seeds_train,
-        dns_seeds_valid,
-        nunroll,
-        closure,
-        closure_name,
-        θ_start,
-        loadcheckpoint = true,
-        st,
-        opt,
-        nunroll_valid,
-        nepoch,
-        dt,
-        do_plot = false,
-        plot_train = false
+    params,
+    projectorders,
+    outdir,
+    plotdir,
+    taskid,
+    postseed,
+    dns_seeds_train,
+    dns_seeds_valid,
+    nunroll,
+    closure,
+    closure_name,
+    θ_start,
+    loadcheckpoint = true,
+    st,
+    opt,
+    nunroll_valid,
+    nepoch,
+    dt,
+    do_plot = false,
+    plot_train = false,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -226,20 +274,33 @@ function trainpost(;
         io_valid = NS.create_io_arrays_posteriori(data_valid, setup)
         θ = device(copy(θ_start[itotal]))
         dataloader_post = NS.create_dataloader_posteriori(
-            io_train[itotal]; nunroll = nunroll,
-            rng = Random.Xoshiro(dns_seeds_train[itotal]), device = device)
+            io_train[itotal];
+            nunroll = nunroll,
+            rng = Random.Xoshiro(dns_seeds_train[itotal]),
+            device = device,
+        )
 
-        dudt_nn = NS.create_right_hand_side_with_closure(
-            setup[1], psolver, closure, st)
+        dudt_nn = NS.create_right_hand_side_with_closure(setup[1], psolver, closure, st)
         loss = create_loss_post_lux(
-            dudt_nn; sciml_solver = Tsit5(), dt = dt, use_cuda = CUDA.functional())
+            dudt_nn;
+            sciml_solver = Tsit5(),
+            dt = dt,
+            use_cuda = CUDA.functional(),
+        )
 
         if loadcheckpoint && isfile(checkfile)
-            callbackstate, trainstate, epochs_trained = CoupledNODE.load_checkpoint(checkfile)
+            callbackstate, trainstate, epochs_trained =
+                CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
             # Put back the data to the correct device 
             if CUDA.functional()
-                callbackstate = (θmin = callbackstate.θmin, lhist_val = callbackstate.lhist_val, loss_min = callbackstate.loss_min, lhist_train = callbackstate.lhist_train, lhist_nomodel = callbackstate.lhist_nomodel)
+                callbackstate = (
+                    θmin = callbackstate.θmin,
+                    lhist_val = callbackstate.lhist_val,
+                    loss_min = callbackstate.loss_min,
+                    lhist_train = callbackstate.lhist_train,
+                    lhist_nomodel = callbackstate.lhist_nomodel,
+                )
                 trainstate = trainstate |> Lux.gpu_device()
             end
         else
@@ -248,23 +309,45 @@ function trainpost(;
         end
 
         callbackstate, callback = NS.create_callback(
-            closure, θ, io_valid[itotal], loss, st;
-            callbackstate = callbackstate, nunroll = nunroll_valid,
-            rng = Xoshiro(postseed), do_plot = do_plot, plot_train = plot_train, figfile = figfile, device = device)
+            closure,
+            θ,
+            io_valid[itotal],
+            loss,
+            st;
+            callbackstate = callbackstate,
+            nunroll = nunroll_valid,
+            rng = Xoshiro(postseed),
+            do_plot = do_plot,
+            plot_train = plot_train,
+            figfile = figfile,
+            device = device,
+        )
         if nepochs_left <= 0
             @info "No epochs left to train."
             continue
         else
             l, trainstate = CoupledNODE.train(
-                closure, θ, st, dataloader_post, loss; tstate = trainstate, nepochs = nepochs_left,
-                alg = opt, cpu = !CUDA.functional(), callback = callback)
+                closure,
+                θ,
+                st,
+                dataloader_post,
+                loss;
+                tstate = trainstate,
+                nepochs = nepochs_left,
+                alg = opt,
+                cpu = !CUDA.functional(),
+                callback = callback,
+            )
         end
         # Save on the CPU
         CoupledNODE.save_checkpoint(checkfile, callbackstate, trainstate)
 
         θ = callbackstate.θmin # Use best θ instead of last θ
-        results = (; θ = Array(θ), comptime = time() - starttime,
-            lhist_val = callbackstate.lhist_val)
+        results = (;
+            θ = Array(θ),
+            comptime = time() - starttime,
+            lhist_val = callbackstate.lhist_val,
+        )
         save_object(postfile, results)
     end
     @info "Finished a-posteriori training."
