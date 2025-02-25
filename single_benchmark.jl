@@ -27,7 +27,7 @@ function load_config()
     elseif length(ARGS) > 0
         return NS.read_config(ARGS[1])
     else
-        return NS.read_config("configs/conf_2.yaml")
+        return NS.read_config("configs/conf_4.yaml")
     end
 end
 conf = load_config()
@@ -203,6 +203,9 @@ setups = map(nles -> getsetup(; params, nles), params.nles);
 # for a fair comparison.
 
 using Lux:relu
+using AttentionLayer
+using CoupledNODE:Base, AttentionCNN
+ACNN = Base.get_extension(CoupledNODE, :AttentionCNN)
 closure, θ_start, st = NS.load_model(conf)
 # Get the same model structure in INS format
 closure_INS, θ_INS = NeuralClosure.cnn(;
@@ -230,6 +233,7 @@ let
     clean()
 end
 
+exit()
 ########################################################################## #src
 
 # ## Training
