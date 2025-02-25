@@ -1,5 +1,3 @@
-# Here we compare all the models trained in the previous notebook
-
 #! format: off
 if false                      #src
     include("src/Benchmark.jl") #src
@@ -14,35 +12,71 @@ using Pkg
 # Color palette for consistent theme throughout paper
 palette = (; color = ["#3366cc", "#cc0000", "#669900", "#ff9900"])
 
-#############################################
-# Identify the models that have been trained
-using Glob
-filter_out = ["plots", "logs", "posttraining", "priortraining", "data"]
-list_models = filter(x -> !any(pattern -> occursin(pattern, x), filter_out), glob("output/kolmogorov/*"))
-
-list_confs = filter(x -> !any(pattern -> occursin(pattern, x), filter_out), glob("configs/*"))
-
-#############################################
-# Device
-if CUDA.functional()
-    ## For running on a CUDA compatible GPU
-    @info "Running on CUDA"
-    cuda_active = true
-    backend = CUDABackend()
-    CUDA.allowscalar(false)
-    device = x -> adapt(CuArray, x)
-    clean() = (GC.gc(); CUDA.reclaim())
-else
-    ## For running on CPU.
-    ## Consider reducing the sizes of DNS, LES, and CNN layers if
-    ## you want to test run on a laptop.
-    @warn "Running on CPU"
-    cuda_active = false
-    backend = CPU()
-    device = identity
-    clean() = nothing
-end
 ########################################################################## #src
+# Read the configuration file
+using IncompressibleNavierStokes
+using NeuralClosure
+using CoupledNODE
+using Lux
+using LuxCUDA
+NS = Base.get_extension(CoupledNODE, :NavierStokes)
+function load_config()
+    @info "Reading configuration file"
+    if haskey(ENV, "CONF_FILE")
+        return NS.read_config(ENV["CONF_FILE"])
+    elseif length(ARGS) > 0
+        return NS.read_config(ARGS[1])
+    else
+        return NS.read_config("configs/conf_2.yaml")
+    end
+end
+conf = load_config()
+
+########################################################################## #src
+
+# Choose where to put output
+basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
+outdir = joinpath(basedir, "output", "kolmogorov")
+closure_name = conf["closure"]["name"]
+outdir_model = joinpath(outdir, closure_name)
+plotdir = joinpath(outdir, "plots", closure_name)
+logdir = joinpath(outdir, "logs", closure_name)
+ispath(outdir) || mkpath(outdir)
+ispath(outdir_model) || mkpath(outdir_model)
+ispath(plotdir) || mkpath(plotdir)
+ispath(logdir) || mkpath(logdir)
+
+# Turn off plots for array jobs.
+# If all the workers do this at the same time, one might
+# error when saving the file at the same time
+doplot() = true
+
+########################################################################## #src
+
+# ## Configure logger ``
+
+using Benchmark
+using Dates
+
+# Write output to file, as the default SLURM file is not updated often enough
+isslurm = haskey(ENV, "SLURM_JOB_ID")
+if isslurm
+    jobid = parse(Int, ENV["SLURM_JOB_ID"])
+    taskid = parse(Int, ENV["SLURM_ARRAY_TASK_ID"])
+    numtasks = parse(Int, ENV["SLURM_ARRAY_TASK_COUNT"])
+    logfile = "job=$(jobid)_task=$(taskid)_$(Dates.now()).out"
+else
+    taskid = 1
+    numtasks = 1
+    logfile = "log_$(Dates.now()).out"
+end
+logfile = joinpath(logdir, logfile)
+setsnelliuslogger(logfile)
+
+@info "# A-posteriori analysis: Forced turbulence (2D)"
+
+# ## Load packages
+
 @info "Loading packages"
 
 if "CoupledNODE" in keys(Pkg.installed())
@@ -68,83 +102,51 @@ using Optimisers
 using ParameterSchedulers
 using Random
 using SparseArrays
-using Benchmark
-using Dates
-using IncompressibleNavierStokes
-using NeuralClosure
-using CoupledNODE
-NS = Base.get_extension(CoupledNODE, :NavierStokes)
 
-########################################################################## 
-# Loop over the trained models
 
-# Initialize the figure
-fig = Figure(; size = (950, 600))
-ax = Axis(
-    fig[1, 1];
-    title = "A-priori error for different configurations",
-    xlabel = "Iteration",
-    ylabel = "A-priori error",
-)
+# ## Random number seeds
+#
+# Use a new RNG with deterministic seed for each code "section"
+# so that e.g. training batch selection does not depend on whether we
+# generated fresh filtered DNS data or loaded existing one (the
+# generation of which would change the state of a global RNG).
+#
+# Note: Using `rng = Random.default_rng()` twice seems to point to the
+# same RNG, and mutating one also mutates the other.
+# `rng = Xoshiro()` creates an independent copy each time.
+#
+# We define all the seeds here.
 
-for (i, conf_file) in enumerate(list_confs)
-    @info "Reading configuration file $conf_file"
-    conf = NS.read_config(conf_file)
-    closure_name = conf["closure"]["name"]
-    model_path = joinpath("output", "kolmogorov", closure_name)
-    # Check if the model exists
-    if !ispath(model_path)
-        @error "Model $closure_name has not been trained yet"
-        continue
-    end
-    conf["params"]["backend"] = deepcopy(backend)
+seeds = NS.load_seeds(conf)
 
-    # Choose where to put output
-    basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
-    outdir = joinpath(basedir, "output", "kolmogorov")
-    outdir_model = joinpath(outdir, closure_name)
+########################################################################## #src
 
-    # Load learned parameters and training times
-    priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
-    θ_cnn_prior = map(p -> copyto!(copy(θ_start), p.θ), priortraining)
-    @info "" θ_cnn_prior .|> extrema # Check that parameters are within reasonable bounds
+# ## Hardware selection
 
-    # Training times
-    map(p -> p.comptime, priortraining)
-    map(p -> p.comptime, priortraining) |> vec .|> x -> round(x; digits = 1)
-    map(p -> p.comptime, priortraining) |> sum |> x -> x / 60 # Minutes
+# Precision
+T = eval(Meta.parse(conf["T"]))
 
-    # Add lines for each configuration
-    for (ig, nles) in enumerate(params.nles)
-        lines!(
-            ax,
-            priortraining[ig, 1].lhist_nomodel,
-            label = "$closure_name (n = $nles, No closure)",
-            linestyle = :dash,
-        )
-        for (ifil, Φ) in enumerate(params.filters)
-            label = Φ isa FaceAverage ? "FA" : "VA"
-            lines!(ax, priortraining[ig, ifil].lhist_val; label = "$closure_name (n = $nles, $label)")
-        end
-    end
+# Device
+if CUDA.functional()
+    ## For running on a CUDA compatible GPU
+    @info "Running on CUDA"
+    cuda_active = true
+    backend = CUDABackend()
+    CUDA.allowscalar(false)
+    device = x -> adapt(CuArray, x)
+    clean() = (GC.gc(); CUDA.reclaim())
+else
+    ## For running on CPU.
+    ## Consider reducing the sizes of DNS, LES, and CNN layers if
+    ## you want to test run on a laptop.
+    @warn "Running on CPU"
+    cuda_active = false
+    backend = CPU()
+    device = identity
+    clean() = nothing
 end
-
-# Add legend
-axislegend(ax)
-
-# Save and display the figure
-figdir = joinpath(outdir, "comparison", "priortraining")
-ispath(figdir) || mkpath(figdir)
-save("$figdir/validationerror.pdf", fig)
-display(fig)
-
-
-# ADD INS TO THE COMPARISON
-
-
-#seeds = NS.load_seeds(conf)
-#T = eval(Meta.parse(conf["T"]))
-
+conf["params"]["backend"] = deepcopy(backend)
+@info backend
 
 ########################################################################## #src
 
@@ -153,18 +155,45 @@ display(fig)
 # Create filtered DNS data for training, validation, and testing.
 
 # Parameters
-#params = NS.load_params(conf)
+params = NS.load_params(conf)
 
-## DNS seeds
-#ntrajectory = conf["ntrajectory"]
-#dns_seeds = splitseed(seeds.dns, ntrajectory)
-#dns_seeds_train = dns_seeds[1:ntrajectory-2]
-#dns_seeds_valid = dns_seeds[ntrajectory-1:ntrajectory-1]
-#dns_seeds_test = dns_seeds[ntrajectory:ntrajectory]
+# DNS seeds
+ntrajectory = conf["ntrajectory"]
+dns_seeds = splitseed(seeds.dns, ntrajectory)
+dns_seeds_train = dns_seeds[1:ntrajectory-2]
+dns_seeds_valid = dns_seeds[ntrajectory-1:ntrajectory-1]
+dns_seeds_test = dns_seeds[ntrajectory:ntrajectory]
 
+# Create data
+docreatedata = conf["docreatedata"]
+for i = 1:ntrajectory
+	if i%numtasks == taskid - 1
+		docreatedata && createdata(; params, seed = dns_seeds[i], outdir, backend)
+	end
+end
+@info "Data generated"
+
+# Computational time
+docomp = conf["docomp"]
+docomp && let
+    comptime, datasize = 0.0, 0.0
+    for seed in dns_seeds
+        comptime += load(
+            getdatafile(outdir, params.nles[1], params.filters[1], seed),
+            "comptime",
+        )
+    end
+    for seed in dns_seeds, nles in params.nles, Φ in params.filters
+        data = namedtupleload(getdatafile(outdir, nles, Φ, seed))
+        datasize += Base.summarysize(data)
+    end
+    @info "Data" comptime
+    @info "Data" comptime / 60 datasize * 1e-9
+    clean()
+end
 
 # LES setups
-#setups = map(nles -> getsetup(; params, nles), params.nles);
+setups = map(nles -> getsetup(; params, nles), params.nles);
 
 ########################################################################## #src
 
@@ -173,25 +202,120 @@ display(fig)
 # All training sessions will start from the same θ₀
 # for a fair comparison.
 
-#using Lux:relu
-#closure, θ_start, st = NS.load_model(conf)
-## Get the same model structure in INS format
-#closure_INS, θ_INS = NeuralClosure.cnn(;
-#    setup = setups[1],
-#    radii = conf["closure"]["radii"],
-#    channels = conf["closure"]["channels"],
-#    activations = [eval(Meta.parse(func)) for func in conf["closure"]["activations"]],
-#    use_bias = conf["closure"]["use_bias"],
-#    rng = eval(Meta.parse(conf["closure"]["rng"])),
-#)
-#@assert device(θ_start) == device(θ_INS)
+using Lux:relu
+closure, θ_start, st = NS.load_model(conf)
+# Get the same model structure in INS format
+closure_INS, θ_INS = NeuralClosure.cnn(;
+    setup = setups[1],
+    radii = conf["closure"]["radii"],
+    channels = conf["closure"]["channels"],
+    activations = [eval(Meta.parse(func)) for func in conf["closure"]["activations"]],
+    use_bias = conf["closure"]["use_bias"],
+    rng = eval(Meta.parse(conf["closure"]["rng"])),
+)
+@assert device(θ_start) == device(θ_INS)
+
+@info "Initialized CNN with $(length(θ_start)) parameters"
+
+# Give the CNN a test run
+# Note: Data and parameters are stored on the CPU, and
+# must be moved to the GPU before use (with `device`)
+let
+    @info "CNN warm up run"
+    using NeuralClosure.Zygote
+    u = randn(T, 32, 32, 2, 10) |> device
+    θ = θ_start |> device
+    closure(u, θ, st)
+    gradient(θ -> sum(closure(u, θ, st)[1]), θ)
+    clean()
+end
+
+########################################################################## #src
+
+# ## Training
+
+# ### A-priori training
 #
-#@info "Initialized CNN with $(length(θ_start)) parameters"
+# Train one set of CNN parameters for each of the filter types and grid sizes.
+# Use the same batch selection random seed for each training setup.
+# Save parameters to disk after each run.
+# Plot training progress (for a validation data batch).
 
+# Train
+for i = 1:ntrajectory
+	if i%numtasks == taskid -1
+let
+    dotrain = conf["priori"]["dotrain"]
+    nepoch = conf["priori"]["nepoch"]
+    dotrain && trainprior(;
+        params,
+        priorseed = seeds.prior,
+        dns_seeds_train,
+        dns_seeds_valid,
+        taskid = i,
+        outdir,
+        plotdir,
+        closure,
+        closure_name,
+        θ_start,
+        st,
+        opt = eval(Meta.parse(conf["priori"]["opt"])),
+        batchsize = conf["priori"]["batchsize"],
+        do_plot = conf["priori"]["do_plot"],
+        plot_train = conf["priori"]["plot_train"],
+        nepoch,
+    )
+end
+end
+end
 
+# Load learned parameters and training times
+priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
+θ_cnn_prior = map(p -> copyto!(copy(θ_start), p.θ), priortraining)
+@info "" θ_cnn_prior .|> extrema # Check that parameters are within reasonable bounds
 
+# Training times
+map(p -> p.comptime, priortraining)
+map(p -> p.comptime, priortraining) |> vec .|> x -> round(x; digits = 1)
+map(p -> p.comptime, priortraining) |> sum |> x -> x / 60 # Minutes
 
-exit()
+# ## Plot training history
+
+with_theme(; palette) do
+    doplot() || return
+    fig = Figure(; size = (950, 250))
+    for (ig, nles) in enumerate(params.nles)
+        ax = Axis(
+            fig[1, ig];
+            title = "n = $(nles)",
+            xlabel = "Iteration",
+            ylabel = "A-priori error",
+            ylabelvisible = ig == 1,
+            yticksvisible = ig == 1,
+            yticklabelsvisible = ig == 1,
+        )
+        ylims!(-0.05, 1.05)
+        lines!(
+            ax,
+#            [Point2f(0, 1), Point2f(priortraining[ig, 1].lhist_nomodel[end][1], 1)];
+            priortraining[ig, 1].lhist_nomodel,
+            label = "No closure",
+            linestyle = :dash,
+        )
+        for (ifil, Φ) in enumerate(params.filters)
+            label = Φ isa FaceAverage ? "FA" : "VA"
+            lines!(ax, priortraining[ig, ifil].lhist_val; label)
+        end
+    end
+    axes = filter(x -> x isa Axis, fig.content)
+    linkaxes!(axes...)
+    Legend(fig[1, end+1], axes[1])
+    figdir = joinpath(plotdir, "priortraining")
+    ispath(figdir) || mkpath(figdir)
+    save("$figdir/validationerror.pdf", fig)
+    display(fig)
+end
+
 ########################################################################## #src
 
 # ### A-posteriori training
@@ -572,7 +696,7 @@ let
             energyhistory[sym][I] = results.writer.ehist
         end
     end
-    jldsave(joinpath(outdir, "history.jld2"); energyhistory, divergencehistory)
+    jldsave(joinpath(outdir_model, "history.jld2"); energyhistory, divergencehistory)
     clean()
 end
 
@@ -842,11 +966,11 @@ let
         end
         clean()
     end
-    jldsave("$outdir/solutions.jld2"; u = utimes, t = times_exact, itime_max_DIF)
+    jldsave("$outdir_model/solutions.jld2"; u = utimes, t = times_exact, itime_max_DIF)
 end;
 
 # Load solution
-solutions = namedtupleload("$outdir/solutions.jld2");
+solutions = namedtupleload("$outdir_model/solutions.jld2");
 
 ########################################################################## #src
 

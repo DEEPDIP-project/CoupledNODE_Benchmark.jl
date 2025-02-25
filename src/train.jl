@@ -125,7 +125,7 @@ function trainprior(;
             callbackstate, trainstate, epochs_trained =
                 CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
-            # Put back the data to the correct device 
+            # Put back the data to the correct device
             if CUDA.functional()
                 callbackstate = (
                     θmin = callbackstate.θmin,
