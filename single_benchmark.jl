@@ -974,7 +974,7 @@ let
 end;
 
 # Load solution
-solutions = namedtupleload("$outdir/solutions.jld2");
+solutions = namedtupleload("$outdir_model/solutions.jld2");
 
 ########################################################################## #src
 
