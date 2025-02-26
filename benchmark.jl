@@ -1,9 +1,9 @@
 # Here we compare all the models trained in the previous notebook
 
 #! format: off
-if false                      #src
+if false
     include("src/Benchmark.jl") #src
-end                           #src
+end
 
 @info "Script started"
 @info VERSION
@@ -11,35 +11,16 @@ end                           #src
 using Pkg
 @info Pkg.status()
 
-#############################################
 # Identify the models that have been trained
+basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
+outdir = joinpath(basedir, "output", "kolmogorov")
+confdir = joinpath(basedir, "configs")
+
 using Glob
 filter_out = ["plots", "logs", "posttraining", "priortraining", "data"]
-list_models = filter(x -> !any(pattern -> occursin(pattern, x), filter_out), glob("output/kolmogorov/*"))
+list_models = filter(x -> !any(pattern -> occursin(pattern, x), filter_out), glob("*", outdir))
+list_confs = glob("*.yaml", confdir)
 
-list_confs = filter(x -> !any(pattern -> occursin(pattern, x), filter_out), glob("configs/*"))
-
-#############################################
-# Device
-if CUDA.functional()
-    ## For running on a CUDA compatible GPU
-    @info "Running on CUDA"
-    cuda_active = true
-    backend = CUDABackend()
-    CUDA.allowscalar(false)
-    device = x -> adapt(CuArray, x)
-    clean() = (GC.gc(); CUDA.reclaim())
-else
-    ## For running on CPU.
-    ## Consider reducing the sizes of DNS, LES, and CNN layers if
-    ## you want to test run on a laptop.
-    @warn "Running on CPU"
-    cuda_active = false
-    backend = CPU()
-    device = identity
-    clean() = nothing
-end
-########################################################################## #src
 @info "Loading packages"
 
 if "CoupledNODE" in keys(Pkg.installed())
@@ -48,29 +29,34 @@ else
     Pkg.add(PackageSpec(rev = "main", url = "https://github.com/DEEPDIP-project/CoupledNODE.jl.git"))
 end
 
-using Accessors
-using Adapt
 using CairoMakie
-using CoupledNODE: loss_priori_lux, create_loss_post_lux
 using CUDA
-using DifferentialEquations
-using IncompressibleNavierStokes.RKMethods
 using JLD2
-using LaTeXStrings
-using LinearAlgebra
 using Lux
 using LuxCUDA
-using NNlib
-using Optimisers
 using ParameterSchedulers
-using Random
-using SparseArrays
 using Benchmark
-using Dates
 using IncompressibleNavierStokes
 using NeuralClosure
 using CoupledNODE
+
 NS = Base.get_extension(CoupledNODE, :NavierStokes)
+
+# Device
+if CUDA.functional()
+    ## For running on a CUDA compatible GPU
+    @info "Running on CUDA"
+    cuda_active = true
+    backend = CUDABackend()
+    CUDA.allowscalar(false)
+else
+    ## For running on CPU.
+    ## Consider reducing the sizes of DNS, LES, and CNN layers if
+    ## you want to test run on a laptop.
+    @warn "Running on CPU"
+    cuda_active = false
+    backend = CPU()
+end
 
 ##########################################################################
 # Loop over the trained models
@@ -94,17 +80,13 @@ for (i, conf_file) in enumerate(list_confs)
         @error "Model $closure_name has not been trained yet"
         continue
     end
-    conf["params"]["backend"] = deepcopy(backend)
 
-    # Choose where to put output
-    basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
-    outdir = joinpath(basedir, "output", "kolmogorov")
-    outdir_model = joinpath(outdir, closure_name)
+    # Parameters
+    conf["params"]["backend"] = deepcopy(backend)
+    params = NS.load_params(conf)
 
     # Load learned parameters and training times
     priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
-    θ_cnn_prior = map(p -> copyto!(copy(θ_start), p.θ), priortraining)
-    @info "" θ_cnn_prior .|> extrema # Check that parameters are within reasonable bounds
 
     # Training times
     map(p -> p.comptime, priortraining)
@@ -129,8 +111,9 @@ end
 # Add legend
 axislegend(ax)
 
-# Save and display the figure
+# Display and save the figure
+display(fig)
+
 figdir = joinpath(outdir, "comparison", "priortraining")
 ispath(figdir) || mkpath(figdir)
 save("$figdir/validationerror.pdf", fig)
-display(fig)
