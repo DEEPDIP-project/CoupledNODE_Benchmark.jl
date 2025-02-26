@@ -1,3 +1,8 @@
+########################################################################## 
+# Benchmark for models that are not of the cnn type so they
+# can not be compared to INS directly.
+##########################################################################
+
 #! format: off
 if false                      #src
     include("src/Benchmark.jl") #src
@@ -204,17 +209,11 @@ setups = map(nles -> getsetup(; params, nles), params.nles);
 # All training sessions will start from the same θ₀
 # for a fair comparison.
 
+using Lux:relu
+using AttentionLayer
+using CoupledNODE:Base, AttentionCNN
+ACNN = Base.get_extension(CoupledNODE, :AttentionCNN)
 closure, θ_start, st = NS.load_model(conf)
-# Get the same model structure in INS format
-closure_INS, θ_INS = NeuralClosure.cnn(;
-    setup = setups[1],
-    radii = conf["closure"]["radii"],
-    channels = conf["closure"]["channels"],
-    activations = [eval(Meta.parse(func)) for func in conf["closure"]["activations"]],
-    use_bias = conf["closure"]["use_bias"],
-    rng = eval(Meta.parse(conf["closure"]["rng"])),
-)
-@assert device(θ_start) == device(θ_INS)
 
 @info "Initialized CNN with $(length(θ_start)) parameters"
 
@@ -701,7 +700,7 @@ let
     clean()
 end
 
-(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir_model, "history.jld2"));
+(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir, "history.jld2"));
 
 ########################################################################## #src
 
