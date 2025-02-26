@@ -10,6 +10,7 @@ AttentionLayer = "3ee63b08-73c5-50c8-acc9-f395aa68c39a"
 CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 CairoMakie = "13f3f980-e62b-5c42-98c6-ff1f3baf88f0"
 ComponentArrays = "b0b7db55-cfe3-40fc-9ded-d10e2dbeff66"
+ConvolutionalNeuralOperators = "d769ba41-1544-53e8-a779-241a28c31cef"
 CoupledNODE = "88291d29-22ea-41b1-bc0b-03785bffce48"
 Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
 DifferentialEquations = "0c46a032-eb83-5123-abaf-570d42b7fbaa"
@@ -40,9 +41,9 @@ CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
 cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [sources]
+AttentionLayer = {rev = "main", url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"}
 IncompressibleNavierStokes = {rev = "v2.1.0", url = "https://github.com/agdestein/IncompressibleNavierStokes.jl.git"}
 NeuralClosure = {rev = "main", url = "https://github.com/DEEPDIP-project/NeuralClosure.jl.git"}
-AttentionLayer = {rev = "main", url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"}
 
 [compat]
 Accessors = "0.1"
@@ -52,6 +53,7 @@ CUDA = "5"
 CUDSS = "0.4"
 CairoMakie = "0.12"
 ComponentArrays = "0.15.19"
+ConvolutionalNeuralOperators = "0.1.0"
 Dates = "1"
 DifferentialEquations = "7.15.0"
 DocStringExtensions = "0.9"
