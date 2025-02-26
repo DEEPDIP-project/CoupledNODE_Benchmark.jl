@@ -200,31 +200,31 @@ end
 "Load a-posteriori training results from correct file names."
 loadpost(outdir, closure_name, nles, filters, projectorders) = map(
     splat((nles, Φ, o) -> load_object(getpostfile(outdir, closure_name, nles, Φ, o))),
-    Iterators.product(nles, filters, projectorders)
+    Iterators.product(nles, filters, projectorders),
 )
 
 "Train with a-posteriori loss function."
 function trainpost(;
-        params,
-        projectorders,
-        outdir,
-        plotdir,
-        taskid,
-        postseed,
-        dns_seeds_train,
-        dns_seeds_valid,
-        nunroll,
-        closure,
-        closure_name,
-        θ_start,
-        loadcheckpoint = true,
-        st,
-        opt,
-        nunroll_valid,
-        nepoch,
-        dt,
-        do_plot = false,
-        plot_train = false
+    params,
+    projectorders,
+    outdir,
+    plotdir,
+    taskid,
+    postseed,
+    dns_seeds_train,
+    dns_seeds_valid,
+    nunroll,
+    closure,
+    closure_name,
+    θ_start,
+    loadcheckpoint = true,
+    st,
+    opt,
+    nunroll_valid,
+    nepoch,
+    dt,
+    do_plot = false,
+    plot_train = false,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
