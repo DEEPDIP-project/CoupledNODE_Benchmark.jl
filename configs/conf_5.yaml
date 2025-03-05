@@ -26,6 +26,7 @@ seeds:
 closure:
   name: "cno_5"
   type: cno
+  size: 40
   cutoff: 10
   channels: [2, 2]
   activations: ["relu", "identity"]
