@@ -15,6 +15,8 @@ using Pkg
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
 confdir = joinpath(basedir, "configs")
+compdir = joinpath(outdir, "comparison")
+ispath(compdir) || mkpath(compdir)
 
 using Glob
 filter_out = ["plots", "logs", "posttraining", "priortraining", "data"]
@@ -58,42 +60,34 @@ else
     backend = CPU()
 end
 
-##########################################################################
-# Loop over the trained models
+# Define some functions
 
-# Initialize the figure
-fig = Figure(; size = (950, 600))
-ax = Axis(
-    fig[1, 1];
-    title = "A-priori error for different configurations",
-    xlabel = "Iteration",
-    ylabel = "A-priori error",
-)
-
-for (i, conf_file) in enumerate(list_confs)
-    @info "Reading configuration file $conf_file"
-    conf = NS.read_config(conf_file)
+function read_config(config_file)
+    conf = NS.read_config(config_file)
     closure_name = conf["closure"]["name"]
     model_path = joinpath("output", "kolmogorov", closure_name)
+
     # Check if the model exists
+    msg = """
+    Model $closure_name has not been trained yet
+    for configuration $config_file
+    """
     if !ispath(model_path)
-        @error "Model $closure_name has not been trained yet"
-        continue
+        @error msg
     end
 
     # Parameters
     conf["params"]["backend"] = deepcopy(backend)
     params = NS.load_params(conf)
 
+    return closure_name, params, conf
+end
+
+function plot_prior(outdir, closure_name, params, ax)
     # Load learned parameters and training times
     priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
 
-    # Training times
-    map(p -> p.comptime, priortraining)
-    map(p -> p.comptime, priortraining) |> vec .|> x -> round(x; digits = 1)
-    map(p -> p.comptime, priortraining) |> sum |> x -> x / 60 # Minutes
-
-    # Add lines for each configuration
+    # Add lines
     for (ig, nles) in enumerate(params.nles)
         lines!(
             ax,
@@ -108,12 +102,70 @@ for (i, conf_file) in enumerate(list_confs)
     end
 end
 
-# Add legend
-axislegend(ax)
+function plot_posteriori(outdir, closure_name, projectorders, params, ax)
+    # Load learned parameters
+    posttraining = loadpost(outdir, closure_name, params.nles, params.filters, projectorders)
 
-# Display and save the figure
-display(fig)
+    # Add lines
+    for (ig, nles) in enumerate(params.nles)
+        for (ifil, Φ) in enumerate(params.filters)
+            label = Φ isa FaceAverage ? "FA" : "VA"
+            lines!(ax, posttraining[ig, ifil].lhist_val; label = "$closure_name (n = $nles, $label)")
+        end
+    end
+end
 
-figdir = joinpath(outdir, "comparison", "priortraining")
-ispath(figdir) || mkpath(figdir)
-save("$figdir/validationerror.pdf", fig)
+function create_figure(title, xlabel, ylabel, size = (950, 600))
+    fig = Figure(; size = size)
+    ax = Axis(
+        fig[1, 1];
+        title = title,
+        xlabel = xlabel,
+        ylabel = ylabel,
+    )
+    return fig, ax
+end
+
+plot_labels = Dict(
+    "prior" => Dict(
+        "title" => "A-priori error for different configurations",
+        "xlabel" => "Iteration",
+        "ylabel" => "A-priori error",
+    ),
+    "posteriori" => Dict(
+        "title" => "A-posteriori error for different configurations",
+        "xlabel" => "Iteration",
+        "ylabel" => "DCF",
+    ),
+)
+
+for key in keys(plot_labels)
+    # Create the figure
+    title = plot_labels[key]["title"]
+    xlabel = plot_labels[key]["xlabel"]
+    ylabel = plot_labels[key]["ylabel"]
+    fig, ax = create_figure(title, xlabel, ylabel)
+
+    # Loop over the configurations
+    for (i, conf_file) in enumerate(list_confs)
+        @info "Reading configuration file $conf_file"
+        closure_name, params, conf = read_config(conf_file)
+        @info "Plotting $closure_name"
+
+        if key == "prior"
+            plot_prior(outdir, closure_name, params, ax)
+        elseif key == "posteriori"
+            projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+            plot_posteriori(outdir, closure_name, projectorders, params, ax)
+        end
+    end
+    # Add legend
+    axislegend(ax)
+
+    # Display and save the figure
+    save("$compdir/$(key)_validationerror.pdf", fig)
+    @info "Saved $compdir/$(key)_validationerror.pdf"
+    display(fig)
+end
+
+@info "Script ended"
