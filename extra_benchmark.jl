@@ -210,12 +210,15 @@ setups = map(nles -> getsetup(; params, nles), params.nles);
 # for a fair comparison.
 
 using Lux:relu
-#using AttentionLayer
-#using CoupledNODE:Base, AttentionCNN
-#ACNN = Base.get_extension(CoupledNODE, :AttentionCNN)
-using ConvolutionalNeuralOperators
-using CoupledNODE:Base, CNO 
-CNO = Base.get_extension(CoupledNODE, :CNO)
+
+using AttentionLayer
+using CoupledNODE:Base, AttentionCNN
+ACNN = Base.get_extension(CoupledNODE, :AttentionCNN)
+
+#using ConvolutionalNeuralOperators
+#using CoupledNODE:Base, CNO 
+#CNO = Base.get_extension(CoupledNODE, :CNO)
+
 closure, θ_start, st = NS.load_model(conf)
 
 @info "Initialized CNN with $(length(θ_start)) parameters"

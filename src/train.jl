@@ -263,6 +263,31 @@ function trainpost(;
             data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
             push!(data_train, hcat(data_i))
         end
+        @info "Datatrain has the following shape and type: $(size(data_train[1])) $(typeof(data_train[1]))"
+        ufo = data_train[1]
+        fufo = ufo[1]
+        @info "Datatrain u has the following shape and type: $(size(fufo.u)) $(typeof(fufo.u))"
+        @info "Datatrain c has the following shape and type: $(size(fufo.c)) $(typeof(fufo.c))"
+        @info "Datatrain t has the following shape and type: $(size(fufo.t)) $(typeof(fufo.t))"
+        # Read the data in the format expected by the CoupledNODE
+        _comptime = rand(Float64)
+        N = 32
+        _c = rand(Float32, N + 2, N + 2, 2, 201)
+        _t = rand(Float32, 201)
+        _u = rand(Float32, N + 2, N + 2, 2, 201)
+        # Create a NamedTuple with the random content
+        random_named_tuple = (; comptime = _comptime, c = _c, t = _t, u = _u)
+        @info "Random named tuple has the following shape and type: "
+        @info "u: $(size(random_named_tuple.u)) $(typeof(random_named_tuple.u))"
+        @info "c: $(size(random_named_tuple.c)) $(typeof(random_named_tuple.c))"
+        @info "t: $(size(random_named_tuple.t)) $(typeof(random_named_tuple.t))"
+        # compare the random named tuple with the data_train
+        @assert typeof(data_train[1]) == typeof(random_named_tuple[1])
+        @assert size(data_train[1]) == size(random_named_tuple[1])
+        @warn "AAAAAAAAAAAAAAAAAAAA"
+
+        exit()
+
         data_valid = []
         for s in dns_seeds_valid
             data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
