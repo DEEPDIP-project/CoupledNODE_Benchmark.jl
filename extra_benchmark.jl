@@ -229,7 +229,7 @@ closure, θ_start, st = NS.load_model(conf)
 let
     @info "CNN warm up run"
     using NeuralClosure.Zygote
-    u = randn(T, 32, 32, 2, 10) |> device
+    u = randn(T, 32+2, 32+2, 2, 10) |> device
     θ = θ_start |> device
     closure(u, θ, st)
     gradient(θ -> sum(closure(u, θ, st)[1]), θ)

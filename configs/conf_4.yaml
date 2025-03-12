@@ -9,8 +9,8 @@ params:
   tburn: 0.5
   tsim: 2.0
   savefreq: 100
-  ndns: 32
-  nles: [16]
+  ndns: 64
+  nles: [32]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
   method: "RKMethods.Wray3(; T)"
@@ -26,13 +26,13 @@ seeds:
 closure:
   name: "attcnn_4"
   type: attentioncnn
-  N: 32
   radii: [2, 2]
   channels: [24, 2]
   activations: ["relu", "identity"]
   use_bias: [true, false]
   use_attention: [true, true]
   emb_sizes: [124,124]
+  Ns: [40, 36]
   patch_sizes: [8, 6]
   n_heads: [4, 4]
   sum_attention: [false, false]
