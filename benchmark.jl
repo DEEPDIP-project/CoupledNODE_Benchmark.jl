@@ -8,9 +8,6 @@ end
 @info "Script started"
 @info VERSION
 
-using Pkg
-@info Pkg.status()
-
 # Identify the models that have been trained
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
@@ -18,29 +15,26 @@ confdir = joinpath(basedir, "configs")
 compdir = joinpath(outdir, "comparison")
 ispath(compdir) || mkpath(compdir)
 
+# List configurations files
 using Glob
-filter_out = ["plots", "logs", "posttraining", "priortraining", "data"]
-list_models = filter(x -> !any(pattern -> occursin(pattern, x), filter_out), glob("*", outdir))
 list_confs = glob("*.yaml", confdir)
 
 @info "Loading packages"
 
+using Pkg
 if "CoupledNODE" in keys(Pkg.installed())
     @info "CoupledNODE already installed"
 else
     Pkg.add(PackageSpec(rev = "main", url = "https://github.com/DEEPDIP-project/CoupledNODE.jl.git"))
 end
 
-using CairoMakie
+using CairoMakie # for plotting
 using CUDA
-using JLD2
-using Lux
-using LuxCUDA
-using ParameterSchedulers
-using Benchmark
-using IncompressibleNavierStokes
-using NeuralClosure
-using CoupledNODE
+using JLD2  # for saving plots
+using Benchmark  # for loading post and prior
+using IncompressibleNavierStokes  # for CPU()
+using NeuralClosure  # for models
+using CoupledNODE # for reading config
 
 NS = Base.get_extension(CoupledNODE, :NavierStokes)
 
@@ -62,7 +56,7 @@ end
 
 # Define some functions
 
-function read_config(config_file)
+function read_config(config_file, backend)
     conf = NS.read_config(config_file)
     closure_name = conf["closure"]["name"]
     model_path = joinpath("output", "kolmogorov", closure_name)
@@ -139,7 +133,9 @@ plot_labels = Dict(
     ),
 )
 
+# loop over plot types and configurations
 for key in keys(plot_labels)
+    @info "Plotting $key"
     # Create the figure
     title = plot_labels[key]["title"]
     xlabel = plot_labels[key]["xlabel"]
@@ -149,7 +145,7 @@ for key in keys(plot_labels)
     # Loop over the configurations
     for (i, conf_file) in enumerate(list_confs)
         @info "Reading configuration file $conf_file"
-        closure_name, params, conf = read_config(conf_file)
+        closure_name, params, conf = read_config(conf_file, backend)
         @info "Plotting $closure_name"
 
         if key == "prior"
