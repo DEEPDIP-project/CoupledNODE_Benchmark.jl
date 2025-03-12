@@ -1,5 +1,4 @@
 # Here we compare all the models trained in the previous notebook
-
 #! format: off
 if false
     include("src/Benchmark.jl") #src
@@ -55,7 +54,6 @@ else
 end
 
 # Define some functions
-
 function read_config(config_file, backend)
     conf = NS.read_config(config_file)
     closure_name = conf["closure"]["name"]
@@ -77,7 +75,7 @@ function read_config(config_file, backend)
     return closure_name, params, conf
 end
 
-function plot_prior(outdir, closure_name, params, ax)
+function plot_prior(outdir, closure_name, params, ax, color)
     # Load learned parameters and training times
     priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
 
@@ -88,15 +86,22 @@ function plot_prior(outdir, closure_name, params, ax)
             priortraining[ig, 1].lhist_nomodel,
             label = "$closure_name (n = $nles, No closure)",
             linestyle = :dash,
+            color = color,
         )
         for (ifil, Φ) in enumerate(params.filters)
             label = Φ isa FaceAverage ? "FA" : "VA"
-            lines!(ax, priortraining[ig, ifil].lhist_val; label = "$closure_name (n = $nles, $label)")
+            # TODO: if xtick should be checked
+            lines!(
+                ax,
+                priortraining[ig, ifil].lhist_val;
+                label = "$closure_name (n = $nles, $label)",
+                color = color,
+            )
         end
     end
 end
 
-function plot_posteriori(outdir, closure_name, projectorders, params, ax)
+function plot_posteriori(outdir, closure_name, projectorders, params, ax, color)
     # Load learned parameters
     posttraining = loadpost(outdir, closure_name, params.nles, params.filters, projectorders)
 
@@ -104,7 +109,17 @@ function plot_posteriori(outdir, closure_name, projectorders, params, ax)
     for (ig, nles) in enumerate(params.nles)
         for (ifil, Φ) in enumerate(params.filters)
             label = Φ isa FaceAverage ? "FA" : "VA"
-            lines!(ax, posttraining[ig, ifil].lhist_val; label = "$closure_name (n = $nles, $label)")
+            y = posttraining[ig, ifil].lhist_val
+            # TODO check step between ticks
+            ax.xticks = 1:length(y)  # because x is "iteration", it should be integer
+            scatterlines!(
+                ax,
+                y;
+                label = "$closure_name (n = $nles, $label)",
+                linestyle = :dash,  # should not interpolate between points
+                marker = :circle,
+                color = color,
+            )
         end
     end
 end
@@ -121,12 +136,12 @@ function create_figure(title, xlabel, ylabel, size = (950, 600))
 end
 
 plot_labels = Dict(
-    "prior" => Dict(
+    "prior_error" => Dict(
         "title" => "A-priori error for different configurations",
         "xlabel" => "Iteration",
         "ylabel" => "A-priori error",
     ),
-    "posteriori" => Dict(
+    "posteriori_error" => Dict(
         "title" => "A-posteriori error for different configurations",
         "xlabel" => "Iteration",
         "ylabel" => "DCF",
@@ -147,12 +162,13 @@ for key in keys(plot_labels)
         @info "Reading configuration file $conf_file"
         closure_name, params, conf = read_config(conf_file, backend)
         @info "Plotting $closure_name"
+        color = Cycled(i + 1)  # make sure each config has a consistent color
 
-        if key == "prior"
-            plot_prior(outdir, closure_name, params, ax)
-        elseif key == "posteriori"
+        if key == "prior_error"
+            plot_prior(outdir, closure_name, params, ax, color)
+        elseif key == "posteriori_error"
             projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-            plot_posteriori(outdir, closure_name, projectorders, params, ax)
+            plot_posteriori(outdir, closure_name, projectorders, params, ax, color)
         end
     end
     # Add legend
