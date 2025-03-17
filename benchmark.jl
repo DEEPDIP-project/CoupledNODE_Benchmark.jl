@@ -75,19 +75,31 @@ function read_config(config_file, backend)
     return closure_name, params, conf
 end
 
+function missing_label(ax, label)
+    for plt in ax.scene.plots
+        if :label in keys(plt.attributes)
+            return false
+        end
+    end
+    return true
+end
+
 function plot_prior(outdir, closure_name, params, ax, color)
     # Load learned parameters and training times
     priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
 
     # Add lines
     for (ig, nles) in enumerate(params.nles)
-        lines!(
-            ax,
-            priortraining[ig, 1].lhist_nomodel,
-            label = "$closure_name (n = $nles, No closure)",
-            linestyle = :dash,
-            color = color,
-        )
+        label = "No closure (n = $nles)"
+        if missing_label(ax, label)  # add No closure only once
+            lines!(
+                ax,
+                priortraining[ig, 1].lhist_nomodel,
+                label = "No closure (n = $nles)",
+                linestyle = :dash,
+                color = color,
+            )
+        end
         for (ifil, Φ) in enumerate(params.filters)
             label = Φ isa FaceAverage ? "FA" : "VA"
             # TODO: if xtick should be checked
