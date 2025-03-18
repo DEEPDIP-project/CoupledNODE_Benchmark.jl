@@ -77,7 +77,7 @@ end
 
 function missing_label(ax, label)
     for plt in ax.scene.plots
-        if :label in keys(plt.attributes)
+        if :label in keys(plt.attributes) && plt.attributes[:label][] == label
             return false
         end
     end
@@ -95,9 +95,10 @@ function plot_prior(outdir, closure_name, params, ax, color)
             lines!(
                 ax,
                 priortraining[ig, 1].lhist_nomodel,
-                label = "No closure (n = $nles)",
+                label = label,
                 linestyle = :dash,
-                color = color,
+                linewidth = 2,
+                color = "black",
             )
         end
         for (ifil, Φ) in enumerate(params.filters)
@@ -147,6 +148,68 @@ function create_figure(title, xlabel, ylabel, size = (950, 600))
     return fig, ax
 end
 
+
+function plot_divergence(outdir, closure_name, projectorders, params, ax, color)
+    divergence_dir = joinpath(outdir, closure_name,  "history.jld2")
+    divergencehistory = namedtupleload(divergence_dir).divergencehistory;
+
+    for (igrid, nles) in enumerate(params.nles)
+        for iorder in 1:length(projectorders),
+            (ifil, Φ) in enumerate(params.filters)
+
+            I = CartesianIndex(igrid, ifil, iorder)
+
+            # TODO avoid hardcoding indexes
+            T = eltype(divergencehistory.nomodel[I][1][1])
+
+            # add No closure only once
+            label = "No closure (n = $nles)"
+            if missing_label(ax, label)
+                lines!(
+                    ax,
+                    divergencehistory.nomodel[I];
+                    label = label,
+                    linestyle = :dash,
+                    linewidth = 2,
+                    color = "black",
+                    )
+            end
+
+            # add reference only once
+            label = "Reference"
+            if missing_label(ax, label)
+                lines!(
+                    ax,
+                    divergencehistory.ref[I];
+                    color = "black",
+                    linestyle = :dot,
+                    linewidth = 2,
+                    label = label,
+                )
+            end
+
+            label = Φ isa FaceAverage ? "FA" : "VA"
+            lines!(
+                ax,
+                divergencehistory.cnn_prior[I];
+                label = "$closure_name (prior) (n = $nles, $label)",
+                linestyle = :dashdot,
+                color = color,
+            )
+            lines!(
+                ax,
+                divergencehistory.cnn_post[I];
+                label = "$closure_name (post) (n = $nles, $label)",
+                color = color,
+            )
+
+            ylims!(ax, (T(1e-6), T(1e3)))
+            xlims!(ax, (-0.05, 1.05))
+            ax.yscale = log10
+        end
+    end
+end
+
 plot_labels = Dict(
     "prior_error" => Dict(
         "title" => "A-priori error for different configurations",
@@ -158,7 +221,14 @@ plot_labels = Dict(
         "xlabel" => "Iteration",
         "ylabel" => "DCF",
     ),
+    "divergence" => Dict(
+        "title" => "Divergence for different configurations",
+        "xlabel" => "t",
+        "ylabel" => "Divergence",
+    ),
 )
+
+#TODO check for the colors of internal loops
 
 # loop over plot types and configurations
 for key in keys(plot_labels)
@@ -181,6 +251,9 @@ for key in keys(plot_labels)
         elseif key == "posteriori_error"
             projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
             plot_posteriori(outdir, closure_name, projectorders, params, ax, color)
+        elseif key == "divergence"
+            projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+            plot_divergence(outdir, closure_name, projectorders, params, ax, color)
         end
     end
     # Add legend
