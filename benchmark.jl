@@ -151,6 +151,7 @@ end
 
 function plot_divergence(outdir, closure_name, projectorders, params, ax, color)
     divergence_dir = joinpath(outdir, closure_name,  "history.jld2")
+    @info "Loading divergence history from $divergence_dir"
     divergencehistory = namedtupleload(divergence_dir).divergencehistory;
 
     for (igrid, nles) in enumerate(params.nles)
@@ -210,6 +211,67 @@ function plot_divergence(outdir, closure_name, projectorders, params, ax, color)
     end
 end
 
+function plot_energy_evolution(outdir, closure_name, projectorders, params, ax, color)
+    energy_dir = joinpath(outdir, closure_name, "history.jld2")
+    @info "Loading energy history from $energy_dir"
+    energyhistory = namedtupleload(energy_dir).energyhistory;
+
+    for (igrid, nles) in enumerate(params.nles)
+        for iorder in 1:length(projectorders),
+            (ifil, Φ) in enumerate(params.filters)
+
+            I = CartesianIndex(igrid, ifil, iorder)
+
+            # TODO avoid hardcoding indexes
+            T = eltype(energyhistory.nomodel[I][1][1])
+
+            # add No closure only once
+            label = "No closure (n = $nles)"
+            if missing_label(ax, label)
+                lines!(
+                    ax,
+                    energyhistory.nomodel[I];
+                    label = label,
+                    linestyle = :dash,
+                    linewidth = 2,
+                    color = "black",
+                    )
+            end
+
+            # add reference only once
+            label = "Reference"
+            if missing_label(ax, label)
+                lines!(
+                    ax,
+                    energyhistory.ref[I];
+                    color = "black",
+                    linestyle = :dot,
+                    linewidth = 2,
+                    label = label,
+                )
+            end
+
+            label = Φ isa FaceAverage ? "FA" : "VA"
+            lines!(
+                ax,
+                energyhistory.cnn_prior[I];
+                label = "$closure_name (prior) (n = $nles, $label)",
+                linestyle = :dashdot,
+                color = color,
+            )
+            lines!(
+                ax,
+                energyhistory.cnn_post[I];
+                label = "$closure_name (post) (n = $nles, $label)",
+                color = color,
+            )
+
+            ylims!(ax, (T(1.0), T(3)))
+            xlims!(ax, (-0.05, 1.05))
+        end
+    end
+end
+
 plot_labels = Dict(
     "prior_error" => Dict(
         "title" => "A-priori error for different configurations",
@@ -224,7 +286,12 @@ plot_labels = Dict(
     "divergence" => Dict(
         "title" => "Divergence for different configurations",
         "xlabel" => "t",
-        "ylabel" => "Divergence",
+        "ylabel" => "Face-average",
+    ),
+    "energy_evolution" => Dict(
+        "title" => "Energy evolution for different configurations",
+        "xlabel" => "t",
+        "ylabel" => "E(t)",
     ),
 )
 
@@ -254,14 +321,18 @@ for key in keys(plot_labels)
         elseif key == "divergence"
             projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
             plot_divergence(outdir, closure_name, projectorders, params, ax, color)
+        elseif key == "energy_evolution"
+            projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+            plot_energy_evolution(outdir, closure_name, projectorders, params, ax, color)
+
         end
     end
     # Add legend
     axislegend(ax)
 
     # Display and save the figure
-    save("$compdir/$(key)_validationerror.pdf", fig)
-    @info "Saved $compdir/$(key)_validationerror.pdf"
+    save("$compdir/$(key).pdf", fig)
+    @info "Saved $compdir/$(key).pdf"
     display(fig)
 end
 
