@@ -75,6 +75,17 @@ function read_config(config_file, backend)
     return closure_name, params, conf
 end
 
+function create_figure(title, xlabel, ylabel, size = (950, 600))
+    fig = Figure(; size = size)
+    ax = Axis(
+        fig[1, 1];
+        title = title,
+        xlabel = xlabel,
+        ylabel = ylabel,
+    )
+    return fig, ax
+end
+
 function missing_label(ax, label)
     for plt in ax.scene.plots
         if :label in keys(plt.attributes) && plt.attributes[:label][] == label
@@ -137,21 +148,8 @@ function plot_posteriori(outdir, closure_name, projectorders, params, ax, color)
     end
 end
 
-function create_figure(title, xlabel, ylabel, size = (950, 600))
-    fig = Figure(; size = size)
-    ax = Axis(
-        fig[1, 1];
-        title = title,
-        xlabel = xlabel,
-        ylabel = ylabel,
-    )
-    return fig, ax
-end
-
-
 function plot_divergence(outdir, closure_name, projectorders, params, ax, color)
     divergence_dir = joinpath(outdir, closure_name,  "history.jld2")
-    @info "Loading divergence history from $divergence_dir"
     divergencehistory = namedtupleload(divergence_dir).divergencehistory;
 
     for (igrid, nles) in enumerate(params.nles)
@@ -205,7 +203,7 @@ function plot_divergence(outdir, closure_name, projectorders, params, ax, color)
             )
 
             ylims!(ax, (T(1e-6), T(1e3)))
-            xlims!(ax, (-0.05, 1.05))
+            xlims!(ax, (-0.05, 3.0)) # keep space for legend
             ax.yscale = log10
         end
     end
@@ -213,7 +211,6 @@ end
 
 function plot_energy_evolution(outdir, closure_name, projectorders, params, ax, color)
     energy_dir = joinpath(outdir, closure_name, "history.jld2")
-    @info "Loading energy history from $energy_dir"
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
     for (igrid, nles) in enumerate(params.nles)
@@ -266,12 +263,13 @@ function plot_energy_evolution(outdir, closure_name, projectorders, params, ax, 
                 color = color,
             )
 
-            ylims!(ax, (T(1.0), T(3)))
-            xlims!(ax, (-0.05, 1.05))
+            ylims!(ax, (T(1.0), T(4.0)))
+            xlims!(ax, (-0.05, 3))  # keep space for legend
         end
     end
 end
 
+# Loop over plot types and configurations
 plot_labels = Dict(
     "prior_error" => Dict(
         "title" => "A-priori error for different configurations",
@@ -296,8 +294,6 @@ plot_labels = Dict(
 )
 
 #TODO check for the colors of internal loops
-
-# loop over plot types and configurations
 for key in keys(plot_labels)
     @info "Plotting $key"
     # Create the figure
