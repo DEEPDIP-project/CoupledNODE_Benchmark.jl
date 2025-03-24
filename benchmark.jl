@@ -86,6 +86,22 @@ function create_figure(title, xlabel, ylabel, size = (950, 600))
     return fig, ax
 end
 
+function _update_ax_limits(ax, x, y)
+    # Get data limits with extra space for the legend
+    xmin, xmax = extrema(x) .* (1, 1.5)
+    ymin, ymax = extrema(y) .* (1, 1.5)
+
+    # Get current axis limits
+    current_xmin, current_xmax = something(ax.limits[][1], (xmin, xmax))
+    current_ymin, current_ymax = something(ax.limits[][2], (ymin, ymax))
+
+    # Update limits
+    xlims!(ax, extrema((xmin, xmax, current_xmin, current_xmax)))
+    ylims!(ax, extrema((ymin, ymax, current_ymin, current_ymax)))
+
+    return ax
+end
+
 function missing_label(ax, label)
     for plt in ax.scene.plots
         if :label in keys(plt.attributes) && plt.attributes[:label][] == label
@@ -135,7 +151,7 @@ function plot_posteriori(outdir, closure_name, projectorders, params, ax, color)
             label = Φ isa FaceAverage ? "FA" : "VA"
             y = posttraining[ig, ifil].lhist_val
             # TODO check step between ticks
-            ax.xticks = 1:length(y)  # because x is "iteration", it should be integer
+            ax.xticks = 1:length(y)  # because y is "iteration", it should be integer
             scatterlines!(
                 ax,
                 y;
@@ -157,9 +173,6 @@ function plot_divergence(outdir, closure_name, projectorders, params, ax, color)
             (ifil, Φ) in enumerate(params.filters)
 
             I = CartesianIndex(igrid, ifil, iorder)
-
-            # TODO avoid hardcoding indexes
-            T = eltype(divergencehistory.nomodel[I][1][1])
 
             # add No closure only once
             label = "No closure (n = $nles)"
@@ -202,8 +215,11 @@ function plot_divergence(outdir, closure_name, projectorders, params, ax, color)
                 color = color,
             )
 
-            ylims!(ax, (T(1e-6), T(1e3)))
-            xlims!(ax, (-0.05, 3.0)) # keep space for legend
+            # update axis limits
+            x_values = [point[1] for v in values(divergencehistory) for point in v[I]]
+            y_values = [point[2] for v in values(divergencehistory) for point in v[I]]
+            ax = _update_ax_limits(ax, x_values, y_values)
+
             ax.yscale = log10
         end
     end
@@ -218,9 +234,6 @@ function plot_energy_evolution(outdir, closure_name, projectorders, params, ax, 
             (ifil, Φ) in enumerate(params.filters)
 
             I = CartesianIndex(igrid, ifil, iorder)
-
-            # TODO avoid hardcoding indexes
-            T = eltype(energyhistory.nomodel[I][1][1])
 
             # add No closure only once
             label = "No closure (n = $nles)"
@@ -263,8 +276,10 @@ function plot_energy_evolution(outdir, closure_name, projectorders, params, ax, 
                 color = color,
             )
 
-            ylims!(ax, (T(1.0), T(4.0)))
-            xlims!(ax, (-0.05, 3))  # keep space for legend
+            # update axis limits
+            x_values = [point[1] for v in values(energyhistory) for point in v[I]]
+            y_values = [point[2] for v in values(energyhistory) for point in v[I]]
+            ax = _update_ax_limits(ax, x_values, y_values)
         end
     end
 end
