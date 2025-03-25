@@ -164,15 +164,14 @@ function plot_posteriori(outdir, closure_name, projectorders, params, ax, color)
     end
 end
 
-function plot_divergence(outdir, closure_name, projectorders, params, ax, color)
+function plot_divergence(outdir, closure_name, params, ax, color)
     divergence_dir = joinpath(outdir, closure_name,  "history.jld2")
     divergencehistory = namedtupleload(divergence_dir).divergencehistory;
 
     for (igrid, nles) in enumerate(params.nles)
-        for iorder in 1:length(projectorders),
-            (ifil, Φ) in enumerate(params.filters)
+        for (ifil, Φ) in enumerate(params.filters)
 
-            I = CartesianIndex(igrid, ifil, iorder)
+            I = CartesianIndex(igrid, ifil, 1)
 
             # add No closure only once
             label = "No closure (n = $nles)"
@@ -225,15 +224,14 @@ function plot_divergence(outdir, closure_name, projectorders, params, ax, color)
     end
 end
 
-function plot_energy_evolution(outdir, closure_name, projectorders, params, ax, color)
+function plot_energy_evolution(outdir, closure_name, params, ax, color)
     energy_dir = joinpath(outdir, closure_name, "history.jld2")
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
     for (igrid, nles) in enumerate(params.nles)
-        for iorder in 1:length(projectorders),
-            (ifil, Φ) in enumerate(params.filters)
+        for (ifil, Φ) in enumerate(params.filters)
 
-            I = CartesianIndex(igrid, ifil, iorder)
+            I = CartesianIndex(igrid, ifil, 1)
 
             # add No closure only once
             label = "No closure (n = $nles)"
@@ -301,7 +299,18 @@ function _get_spectra(setup, u)
     return specs
 end
 
-function plot_energy_spectra(outdir, closure_name, projectorders, params, fig, color)
+function _build_inertia_slope(kmax, specs, κ)
+    # Build inertial slope above energy
+    logkrange = [0.45 * log(kmax), 0.85 * log(kmax)]
+    krange = exp.(logkrange)
+    slope, slopelabel = -3.0, L"$\kappa^{-3}$"
+    slopeconst = maximum(specs ./ κ .^ slope)
+    offset = 3
+    inertia = offset .* slopeconst .* krange .^ slope
+    return krange, inertia, slopelabel
+end
+
+function plot_energy_spectra(outdir, closure_name, params, fig, color)
     energy_dir = joinpath(outdir, closure_name, "solutions.jld2")
     solutions = namedtupleload(energy_dir);
 
@@ -311,26 +320,11 @@ function plot_energy_spectra(outdir, closure_name, projectorders, params, fig, c
         kmax = maximum(κ)
         all_specs = _get_spectra(setup, solutions.u)
 
-        for (iorder, projectorder) in enumerate(projectorders),
-            (ifil, Φ) in enumerate(params.filters)
+        for (ifil, Φ) in enumerate(params.filters)
 
-            I = CartesianIndex(igrid, ifil, iorder)
+            I = CartesianIndex(igrid, ifil, 1)
 
             for (itime, t) in enumerate(solutions.t)
-                # Only first time for First
-                projectorder == ProjectOrder.First &&
-                    itime > solutions.itime_max_DIF &&
-                    continue
-                specs = all_specs[itime][I]
-
-                ## Build inertial slope above energy
-                logkrange = [0.45 * log(kmax), 0.85 * log(kmax)]
-                krange = exp.(logkrange)
-                slope, slopelabel = -3.0, L"$\kappa^{-3}$"
-                slopeconst = maximum(specs[1] ./ κ .^ slope)
-                offset = 3
-                inertia = offset .* slopeconst .* krange .^ slope
-
                 ## Nice ticks
                 logmax = round(Int, log2(kmax + 1))
                 if logmax > 5
@@ -344,10 +338,12 @@ function plot_energy_spectra(outdir, closure_name, projectorders, params, fig, c
                 title = "t = $(round(t; digits = 1))"
                 ax = Axis(
                     subfig;
+                    xticks,
                     title = title,
                     xlabel = "κ",
                 )
 
+                specs = all_specs[itime][I]
                 # add No closure
                 lines!(
                     ax,
@@ -386,6 +382,7 @@ function plot_energy_spectra(outdir, closure_name, projectorders, params, fig, c
                     label = "$closure_name (post) (n = $nles, $label)",
                     color = color,
                 )
+                krange, inertia, slopelabel = _build_inertia_slope(kmax, specs[1], κ)
                 lines!(
                     ax,
                     krange,
@@ -464,11 +461,9 @@ for key in keys(plot_labels)
             projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
             plot_posteriori(outdir, closure_name, projectorders, params, ax, color)
         elseif key == "divergence"
-            projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-            plot_divergence(outdir, closure_name, projectorders, params, ax, color)
+            plot_divergence(outdir, closure_name, params, ax, color)
         elseif key == "energy_evolution"
-            projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-            plot_energy_evolution(outdir, closure_name, projectorders, params, ax, color)
+            plot_energy_evolution(outdir, closure_name, params, ax, color)
         elseif key=="energy_spectra"
             Label(
                 fig[0, 0],
@@ -476,8 +471,7 @@ for key in keys(plot_labels)
 
             )
             subfig = fig[i, :]
-            projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-            plot_energy_spectra(outdir, closure_name, projectorders, params, subfig, color)
+            plot_energy_spectra(outdir, closure_name, params, subfig, color)
         end
     end
     # Add legend
