@@ -7,6 +7,10 @@ end
 @info "Script started"
 @info VERSION
 
+# Color palette for consistent theme throughout paper
+palette = (; color = ["#3366cc", "#cc0000", "#669900", "#ff9900"])
+set_theme!(palette = palette)
+
 # Identify the models that have been trained
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
@@ -353,6 +357,10 @@ function plot_energy_spectra(solutions, all_specs, κ, closure_name, ig, nles, i
     end
 end
 
+function _convert_to_single_index(i, j, k, dimj, dimk)
+    return (i - 1) * dimj * dimk + (j - 1) * dimk + k
+end
+
 # Loop over plot types and configurations
 plot_labels = Dict(
     "prior_error" => Dict(
@@ -380,7 +388,6 @@ plot_labels = Dict(
     ),
 )
 
-#TODO check for the colors of internal loops
 for key in keys(plot_labels)
     @info "Plotting $key"
 
@@ -400,11 +407,16 @@ for key in keys(plot_labels)
         @info "Reading configuration file $conf_file"
         closure_name, params, conf = read_config(conf_file, backend)
 
-        # make sure each config has a consistent color
-        color = Cycled(i + 1)
-
         for (ig, nles) in enumerate(params.nles),
             (ifil, Φ) in enumerate(params.filters)
+
+            # make sure each config has a consistent color
+            #TODO should be tested
+            col_index = _convert_to_single_index(
+                i, ig, ifil, length(params.nles), length(params.filters)
+            )
+
+            color = Cycled(col_index + 1)
 
             if key == "prior_error"
                 # Load learned parameters and training times
