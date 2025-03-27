@@ -57,23 +57,13 @@ else
 end
 
 # Global variables for setting linestyle and colors in all plots
-NO_CLOSURE_COLOR = "black"
-NO_CLOSURE_lINESTYLE = :dash
-NO_CLOSURE_LINEWIDTH = 2
-
-REFERENCE_COLOR = "black"
-REFERENCE_LINESTYLE = :dot
-REFERENCE_LINEWIDTH = 2
-
-PRIOR_LINESTYLE = :solid
-PRIOR_LINEWIDTH = 1
-
-POST_LINESTYLE = :dashdot
-POST_LINEWIDTH = 1
-
-INERTIA_LINESTYLE = :dot
-INERTIA_LINEWIDTH = 1
-INERTIA_COLOR = "blue"
+PLOT_STYLES = Dict(
+    :no_closure => (color="black", linestyle=:dash, linewidth=2),
+    :reference => (color="black", linestyle=:dot, linewidth=2),
+    :prior => (color="black", linestyle=:solid, linewidth=1),
+    :post => (color="black", linestyle=:dashdot, linewidth=1),
+    :inertia => (color="blue", linestyle=:dot, linewidth=1),
+)
 
 # Define some functions
 function read_config(config_file, backend)
@@ -123,60 +113,67 @@ function _missing_label(ax, label)
     return true
 end
 
-function plot_prior(priortraining, closure_name, ig, nles, ifil, Φ, ax, color)
+function plot_prior(outdir, closure_name, nles, Φ, ax, color)
+    # Load learned parameters
+    priortraining = loadprior(outdir, closure_name, [nles], [Φ])
     label = "No closure (n = $nles)"
     if _missing_label(ax, label)  # add No closure only once
         lines!(
             ax,
-            priortraining[ig, 1].lhist_nomodel,
+            priortraining[1].lhist_nomodel,
             label = label,
-            linestyle = NO_CLOSURE_lINESTYLE,
-            linewidth = NO_CLOSURE_LINEWIDTH,
-            color = NO_CLOSURE_COLOR,
+            linestyle = PLOT_STYLES[:no_closure].linestyle,
+            linewidth = PLOT_STYLES[:no_closure].linewidth,
+            color = PLOT_STYLES[:no_closure].color,
         )
     end
     label = Φ isa FaceAverage ? "FA" : "VA"
-    y = priortraining[ig, ifil].lhist_val
+    y = priortraining[1].lhist_val
     lines!(
         ax,
         y;
         label = "$closure_name (n = $nles, $label)",
-        color = color,
-        linestyle = PRIOR_LINESTYLE,
-        linewidth = PRIOR_LINEWIDTH,
+        color = color, # dont change this color
+        linestyle = PLOT_STYLES[:prior].linestyle,
+        linewidth = PLOT_STYLES[:prior].linewidth,
     )
     ax = _update_ax_limits(ax, collect(1:length(y)), y)
 end
 
-function plot_posteriori(posttraining, closure_name, ig, nles, ifil, Φ, ax, color)
+function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, color)
+    # Load learned parameters
+    posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
+
     label = Φ isa FaceAverage ? "FA" : "VA"
-    y = posttraining[ig, ifil].lhist_val
+    y = posttraining[1].lhist_val
     ax.xticks = 1:length(y)  # because y is "iteration", it should be integer
     scatterlines!(
         ax,
         y;
         label = "$closure_name (n = $nles, $label)",
-        linestyle = POST_LINESTYLE,  # should not interpolate between points
-        linewidth = POST_LINEWIDTH,
+        linestyle = PLOT_STYLES[:post].linestyle,  # should not interpolate between points
+        linewidth = PLOT_STYLES[:post].linewidth,
         marker = :circle,
-        color = color,
+        color = color, # dont change this color
     )
     ax = _update_ax_limits(ax, collect(1:length(y)), y)
 end
 
-function plot_divergence(divergencehistory, closure_name, ig, nles, ifil, Φ, ax, color)
-    I = CartesianIndex(ig, ifil, 1)
+function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color)
+    # Load learned parameters
+    divergence_dir = joinpath(outdir, closure_name,  "history.jld2")
+    divergencehistory = namedtupleload(divergence_dir).divergencehistory;
 
     # add No closure only once
     label = "No closure (n = $nles)"
     if _missing_label(ax, label)
         lines!(
             ax,
-            divergencehistory.nomodel[I];
+            divergencehistory.nomodel[data_index];
             label = label,
-            linestyle = NO_CLOSURE_lINESTYLE,
-            linewidth = NO_CLOSURE_LINEWIDTH,
-            color = NO_CLOSURE_COLOR,
+            linestyle = PLOT_STYLES[:no_closure].linestyle,
+            linewidth = PLOT_STYLES[:no_closure].linewidth,
+            color = PLOT_STYLES[:no_closure].color,
             )
     end
 
@@ -185,10 +182,10 @@ function plot_divergence(divergencehistory, closure_name, ig, nles, ifil, Φ, ax
     if _missing_label(ax, label)
         lines!(
             ax,
-            divergencehistory.ref[I];
-            color = REFERENCE_COLOR,
-            linestyle = REFERENCE_LINESTYLE,
-            linewidth = REFERENCE_LINEWIDTH,
+            divergencehistory.ref[data_index];
+            color = PLOT_STYLES[:reference].color,
+            linestyle = PLOT_STYLES[:reference].linestyle,
+            linewidth = PLOT_STYLES[:reference].linewidth,
             label = label,
         )
     end
@@ -196,42 +193,44 @@ function plot_divergence(divergencehistory, closure_name, ig, nles, ifil, Φ, ax
     label = Φ isa FaceAverage ? "FA" : "VA"
     lines!(
         ax,
-        divergencehistory.cnn_prior[I];
+        divergencehistory.cnn_prior[data_index];
         label = "$closure_name (prior) (n = $nles, $label)",
-        linestyle = PRIOR_LINESTYLE,
-        linewidth = PRIOR_LINEWIDTH,
+        linestyle = PLOT_STYLES[:prior].linestyle,
+        linewidth = PLOT_STYLES[:prior].linewidth,
         color = color, # dont change this color
     )
     lines!(
         ax,
-        divergencehistory.cnn_post[I];
+        divergencehistory.cnn_post[data_index];
         label = "$closure_name (post) (n = $nles, $label)",
-        linestyle = POST_LINESTYLE,
-        linewidth = POST_LINEWIDTH,
+        linestyle = PLOT_STYLES[:post].linestyle,
+        linewidth = PLOT_STYLES[:post].linewidth,
         color = color, # dont change this color
     )
 
     # update axis limits
-    x_values = [point[1] for v in values(divergencehistory) for point in v[I]]
-    y_values = [point[2] for v in values(divergencehistory) for point in v[I]]
+    x_values = [point[1] for v in values(divergencehistory) for point in v[data_index]]
+    y_values = [point[2] for v in values(divergencehistory) for point in v[data_index]]
     ax = _update_ax_limits(ax, x_values, y_values)
 
     ax.yscale = log10
 end
 
-function plot_energy_evolution(energyhistory, closure_name, ig, nles, ifil, Φ, ax, color)
-    I = CartesianIndex(ig, ifil, 1)
+function plot_energy_evolution(outdir, closure_name, nles, Φ, data_index, ax, color)
+    # Load learned parameters
+    energy_dir = joinpath(outdir, closure_name, "history.jld2")
+    energyhistory = namedtupleload(energy_dir).energyhistory;
 
     # add No closure only once
     label = "No closure (n = $nles)"
     if _missing_label(ax, label)
         lines!(
             ax,
-            energyhistory.nomodel[I];
+            energyhistory.nomodel[data_index];
             label = label,
-            linestyle = NO_CLOSURE_lINESTYLE,
-            linewidth = NO_CLOSURE_LINEWIDTH,
-            color = NO_CLOSURE_COLOR,
+            linestyle = PLOT_STYLES[:no_closure].linestyle,
+            linewidth = PLOT_STYLES[:no_closure].linewidth,
+            color = PLOT_STYLES[:no_closure].color,
             )
     end
 
@@ -240,10 +239,10 @@ function plot_energy_evolution(energyhistory, closure_name, ig, nles, ifil, Φ, 
     if _missing_label(ax, label)
         lines!(
             ax,
-            energyhistory.ref[I];
-            color = REFERENCE_COLOR,
-            linestyle = REFERENCE_LINESTYLE,
-            linewidth = REFERENCE_LINEWIDTH,
+            energyhistory.ref[data_index];
+            color = PLOT_STYLES[:reference].color,
+            linestyle = PLOT_STYLES[:reference].linestyle,
+            linewidth = PLOT_STYLES[:reference].linewidth,
             label = label,
         )
     end
@@ -251,24 +250,24 @@ function plot_energy_evolution(energyhistory, closure_name, ig, nles, ifil, Φ, 
     label = Φ isa FaceAverage ? "FA" : "VA"
     lines!(
         ax,
-        energyhistory.cnn_prior[I];
+        energyhistory.cnn_prior[data_index];
         label = "$closure_name (prior) (n = $nles, $label)",
-        linestyle = PRIOR_LINESTYLE,
-        linewidth = PRIOR_LINEWIDTH,
+        linestyle = PLOT_STYLES[:prior].linestyle,
+        linewidth = PLOT_STYLES[:prior].linewidth,
         color = color, # dont change this color
     )
     lines!(
         ax,
-        energyhistory.cnn_post[I];
+        energyhistory.cnn_post[data_index];
         label = "$closure_name (post) (n = $nles, $label)",
-        linestyle = POST_LINESTYLE,
-        linewidth = POST_LINEWIDTH,
+        linestyle = PLOT_STYLES[:post].linestyle,
+        linewidth = PLOT_STYLES[:post].linewidth,
         color = color, # dont change this color
     )
 
     # update axis limits
-    x_values = [point[1] for v in values(energyhistory) for point in v[I]]
-    y_values = [point[2] for v in values(energyhistory) for point in v[I]]
+    x_values = [point[1] for v in values(energyhistory) for point in v[data_index]]
+    y_values = [point[2] for v in values(energyhistory) for point in v[data_index]]
     ax = _update_ax_limits(ax, x_values, y_values)
 end
 
@@ -300,10 +299,16 @@ function _build_inertia_slope(kmax, specs, κ)
     return krange, inertia, slopelabel
 end
 
-function plot_energy_spectra(solutions, all_specs, κ, closure_name, ig, nles, ifil, Φ, fig, color)
-    kmax = maximum(κ)
+function plot_energy_spectra(outdir, params, closure_name, nles, Φ, data_index, fig, color)
+    # Load learned parameters
+    energy_dir = joinpath(outdir, closure_name, "solutions.jld2")
+    solutions = namedtupleload(energy_dir);
 
-    I = CartesianIndex(ig, ifil, 1)
+    setup = getsetup(; params, nles)
+    κ = IncompressibleNavierStokes.spectral_stuff(setup).κ
+    all_specs = _get_spectra(setup, solutions.u)
+
+    kmax = maximum(κ)
 
     for (itime, t) in enumerate(solutions.t)
         ## Nice ticks
@@ -324,16 +329,16 @@ function plot_energy_spectra(solutions, all_specs, κ, closure_name, ig, nles, i
             xlabel = "κ",
         )
 
-        specs = all_specs[itime][I]
+        specs = all_specs[itime][data_index]
         # add No closure
         lines!(
             ax,
             κ,
             specs[2];
             label = "No closure (n = $nles)",
-            linestyle = NO_CLOSURE_lINESTYLE,
-            linewidth = NO_CLOSURE_LINEWIDTH,
-            color = NO_CLOSURE_COLOR,
+            linestyle = PLOT_STYLES[:no_closure].linestyle,
+            linewidth = PLOT_STYLES[:no_closure].linewidth,
+            color = PLOT_STYLES[:no_closure].color,
             )
 
         # add reference
@@ -341,9 +346,9 @@ function plot_energy_spectra(solutions, all_specs, κ, closure_name, ig, nles, i
             ax,
             κ,
             specs[1];
-            color = REFERENCE_COLOR,
-            linestyle = REFERENCE_LINESTYLE,
-            linewidth = REFERENCE_LINEWIDTH,
+            color = PLOT_STYLES[:reference].color,
+            linestyle = PLOT_STYLES[:reference].linestyle,
+            linewidth = PLOT_STYLES[:reference].linewidth,
             label = "Reference",
         )
 
@@ -353,8 +358,8 @@ function plot_energy_spectra(solutions, all_specs, κ, closure_name, ig, nles, i
             κ,
             specs[3];
             label = "$closure_name (prior) (n = $nles, $label)",
-            linestyle = PRIOR_LINESTYLE,
-            linewidth = PRIOR_LINEWIDTH,
+            linestyle = PLOT_STYLES[:prior].linestyle,
+            linewidth = PLOT_STYLES[:prior].linewidth,
             color = color, # dont change this color
         )
         lines!(
@@ -362,8 +367,8 @@ function plot_energy_spectra(solutions, all_specs, κ, closure_name, ig, nles, i
             κ,
             specs[4];
             label = "$closure_name (post) (n = $nles, $label)",
-            linestyle = POST_LINESTYLE,
-            linewidth = POST_LINEWIDTH,
+            linestyle = PLOT_STYLES[:post].linestyle,
+            linewidth = PLOT_STYLES[:post].linewidth,
             color = color, # dont change this color
         )
         krange, inertia, slopelabel = _build_inertia_slope(kmax, specs[1], κ)
@@ -371,10 +376,10 @@ function plot_energy_spectra(solutions, all_specs, κ, closure_name, ig, nles, i
             ax,
             krange,
             inertia;
-            color = INERTIA_COLOR,
+            color = PLOT_STYLES[:inertia].color,
             label = slopelabel,
-            linestyle = INERTIA_LINESTYLE,
-            linewidth = INERTIA_LINEWIDTH,
+            linestyle = PLOT_STYLES[:inertia].linestyle,
+            linewidth = PLOT_STYLES[:inertia].linewidth,
         )
         ax.yscale = log10
         ax.xscale = log2
@@ -394,28 +399,28 @@ end
 
 # Loop over plot types and configurations
 plot_labels = Dict(
-    "prior_error" => Dict(
-        "title" => "A-priori error for different configurations",
-        "xlabel" => "Iteration",
-        "ylabel" => "A-priori error",
+    :prior_error => (
+        title  = "A-priori error for different configurations",
+        xlabel = "Iteration",
+        ylabel = "A-priori error",
     ),
-    "posteriori_error" => Dict(
-        "title" => "A-posteriori error for different configurations",
-        "xlabel" => "Iteration",
-        "ylabel" => "DCF",
+    :posteriori_error => (
+        title  = "A-posteriori error for different configurations",
+        xlabel = "Iteration",
+        ylabel = "DCF",
     ),
-    "divergence" => Dict(
-        "title" => "Divergence for different configurations",
-        "xlabel" => "t",
-        "ylabel" => "Face-average",
+    :divergence => (
+        title  = "Divergence for different configurations",
+        xlabel = "t",
+        ylabel = "Face-average",
     ),
-    "energy_evolution" => Dict(
-        "title" => "Energy evolution for different configurations",
-        "xlabel" => "t",
-        "ylabel" => "E(t)",
+    :energy_evolution => (
+        title  = "Energy evolution for different configurations",
+        xlabel = "t",
+        ylabel = "E(t)",
     ),
-    "energy_spectra" => Dict(
-        "title" => "Energy spectra",
+    :energy_spectra => (
+        title  = "Energy spectra",
     ),
 )
 
@@ -426,12 +431,12 @@ for key in keys(plot_labels)
 
     # Create the figure
     fig = Figure(; size = (950, 600))
-    if key != "energy_spectra"
+    if key != :energy_spectra
         ax = Axis(
             fig[1, 1];
-            title = plot_labels[key]["title"],
-            xlabel = plot_labels[key]["xlabel"],
-            ylabel = plot_labels[key]["ylabel"],
+            title = plot_labels[key].title,
+            xlabel = plot_labels[key].xlabel,
+            ylabel = plot_labels[key].ylabel,
         )
     end
 
@@ -449,70 +454,47 @@ for key in keys(plot_labels)
             col_index = _convert_to_single_index(
                 i, ig, ifil, length(params.nles), length(params.filters)
             )
-
             color = Cycled(col_index + 1)
 
-            if key == "prior_error"
-                # Load learned parameters
-                priortraining = loadprior(
-                    outdir, closure_name, params.nles, params.filters
-                )
+            data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
 
+            if key == :prior_error
                 plot_prior(
-                    priortraining, closure_name, ig, nles, ifil, Φ, ax, color
+                    outdir, closure_name, nles, Φ, ax, color
                 )
 
-            elseif key == "posteriori_error"
-                # Load learned parameters
+            elseif key == :posteriori_error
                 projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-                posttraining = loadpost(
-                    outdir, closure_name, params.nles, params.filters, projectorders
-                )
-
                 plot_posteriori(
-                    posttraining, closure_name, ig, nles, ifil, Φ, ax, color
+                    outdir, closure_name, nles, Φ, projectorders, ax, color
                 )
 
-            elseif key == "divergence"
-                # Load learned parameters
-                divergence_dir = joinpath(outdir, closure_name,  "history.jld2")
-                divergencehistory = namedtupleload(divergence_dir).divergencehistory;
+            elseif key == :divergence
 
                 plot_divergence(
-                    divergencehistory, closure_name, ig, nles, ifil, Φ, ax, color
+                    outdir, closure_name, nles, Φ, data_index, ax, color
                 )
 
-            elseif key == "energy_evolution"
-                # Load learned parameters
-                energy_dir = joinpath(outdir, closure_name, "history.jld2")
-                energyhistory = namedtupleload(energy_dir).energyhistory;
-
+            elseif key == :energy_evolution
                 plot_energy_evolution(
-                    energyhistory, closure_name, ig, nles, ifil, Φ, ax, color
+                    outdir, closure_name, nles, Φ, data_index, ax, color
                 )
 
-            elseif key=="energy_spectra"
-                # Load learned parameters
-                energy_dir = joinpath(outdir, closure_name, "solutions.jld2")
-                solutions = namedtupleload(energy_dir);
-
-                setup = getsetup(; params, nles)
-                κ = IncompressibleNavierStokes.spectral_stuff(setup).κ
-                all_specs = _get_spectra(setup, solutions.u)
-
+            elseif key== :energy_spectra
                 Label(
-                    fig[0, 0],
-                    "Energy spectra for different configurations",
-
+                    fig[0, :],
+                    "Energy spectra for different configurations";
+                    font = :bold,
+                    tellwidth=false,
                 )
                 plot_energy_spectra(
-                    solutions, all_specs, κ, closure_name, ig, nles, ifil, Φ, fig[i, :], color
+                    outdir, params, closure_name, nles, Φ, data_index, fig[i, :], color
                 )
             end
         end
     end
     # Add legend
-    if key != "energy_spectra"
+    if key != :energy_spectra
         axislegend(ax, position = :rt)
     end
 
