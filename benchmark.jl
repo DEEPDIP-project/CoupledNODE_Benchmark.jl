@@ -24,6 +24,7 @@ list_confs = filter(x -> !any(pattern -> occursin(pattern, x), filter_out), glob
 
 #############################################
 # Device
+using CUDA
 if CUDA.functional()
     ## For running on a CUDA compatible GPU
     @info "Running on CUDA"
@@ -55,7 +56,6 @@ using Accessors
 using Adapt
 using CairoMakie
 using CoupledNODE: loss_priori_lux, create_loss_post_lux
-using CUDA
 using DifferentialEquations
 using IncompressibleNavierStokes.RKMethods
 using JLD2

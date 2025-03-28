@@ -141,6 +141,7 @@ if CUDA.functional()
     backend = CUDABackend()
     CUDA.allowscalar(false)
     device = x -> adapt(CuArray, x)
+    @info "CUDA device" CUDA.device()
     clean() = (GC.gc(); CUDA.reclaim())
 else
     ## For running on CPU.
@@ -211,13 +212,14 @@ setups = map(nles -> getsetup(; params, nles), params.nles);
 
 using Lux:relu
 
+# Load the modules for AttentionCNN
 using AttentionLayer
 using CoupledNODE:Base, AttentionCNN
 ACNN = Base.get_extension(CoupledNODE, :AttentionCNN)
-
-#using ConvolutionalNeuralOperators
-#using CoupledNODE:Base, CNO 
-#CNO = Base.get_extension(CoupledNODE, :CNO)
+# Load the modules for CNO
+using ConvolutionalNeuralOperators
+using CoupledNODE:Base, CNO 
+CNO = Base.get_extension(CoupledNODE, :CNO)
 
 closure, θ_start, st = NS.load_model(conf)
 
