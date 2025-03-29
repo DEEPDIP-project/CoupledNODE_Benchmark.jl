@@ -446,6 +446,7 @@ for key in keys(plot_labels)
         closure_name, params, conf = read_config(conf_file, backend)
 
         # Loop over the parameters
+        CUDA.allowscalar() do
         for (ig, nles) in enumerate(params.nles),
             (ifil, Φ) in enumerate(params.filters)
 
@@ -491,6 +492,7 @@ for key in keys(plot_labels)
                     outdir, params, closure_name, nles, Φ, data_index, fig[i, :], color
                 )
             end
+        end
         end
     end
     # Add legend
