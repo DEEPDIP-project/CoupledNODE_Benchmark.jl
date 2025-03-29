@@ -608,6 +608,7 @@ end
 
 # ### Compute total kinetic energy as a function of time
 
+CUDA.allowscalar() do
 let
     s = length(params.nles), length(params.filters), length(projectorders)
     keys = [:ref, :nomodel, :cnn_prior, :cnn_post]
@@ -699,6 +700,7 @@ let
     end
     jldsave(joinpath(outdir_model, "history.jld2"); energyhistory, divergencehistory)
     clean()
+end
 end
 
 (; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir_model, "history.jld2"));

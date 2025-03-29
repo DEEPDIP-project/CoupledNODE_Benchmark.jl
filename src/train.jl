@@ -117,7 +117,7 @@ function trainprior(;
             device = device,
         )
         train_data_priori = dataloader_prior()
-        
+
         loss_priori_lux(closure, θ, st, train_data_priori)
         loss = loss_priori_lux
 

@@ -41,9 +41,9 @@ CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
 cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
 [sources]
-AttentionLayer = {rev = "main", url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"}
 IncompressibleNavierStokes = {rev = "v2.1.0", url = "https://github.com/agdestein/IncompressibleNavierStokes.jl.git"}
 NeuralClosure = {rev = "main", url = "https://github.com/DEEPDIP-project/NeuralClosure.jl.git"}
+AttentionLayer = {rev = "main", url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"}
 
 [compat]
 Accessors = "0.1"
