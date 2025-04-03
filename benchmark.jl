@@ -129,7 +129,12 @@ function plot_prior(outdir, closure_name, nles, Φ, ax, color)
         )
     end
     label = Φ isa FaceAverage ? "FA" : "VA"
-    y = priortraining[1].lhist_val
+    if closure_name == "INS_ref"
+        y = priortraining[1].hist
+    else
+        y = priortraining[1].lhist_val
+    end
+    
     lines!(
         ax,
         y;
@@ -138,15 +143,27 @@ function plot_prior(outdir, closure_name, nles, Φ, ax, color)
         linestyle = PLOT_STYLES[:prior].linestyle,
         linewidth = PLOT_STYLES[:prior].linewidth,
     )
-    ax = _update_ax_limits(ax, collect(1:length(y)), y)
+    if closure_name !== "INS_ref"
+        ax = _update_ax_limits(ax, collect(1:length(y)), y)
+    end
 end
 
 function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, color)
     # Load learned parameters
-    posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
 
     label = Φ isa FaceAverage ? "FA" : "VA"
-    y = posttraining[1].lhist_val
+    if closure_name == "INS_ref"
+        # Here i need the _checkpoint file generated from PaperDC
+        postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1])
+        checkfile = join(splitext(postfile), "_checkpoint")
+        check = namedtupleload(checkfile)
+        (; hist) = check.callbackstate
+        y = hist
+    else
+        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
+        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
+        y = posttraining[1].lhist_val
+    end
     ax.xticks = 1:length(y)  # because y is "iteration", it should be integer
     scatterlines!(
         ax,
@@ -157,7 +174,9 @@ function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, colo
         marker = :circle,
         color = color, # dont change this color
     )
-    ax = _update_ax_limits(ax, collect(1:length(y)), y)
+    if closure_name !== "INS_ref"
+        ax = _update_ax_limits(ax, collect(1:length(y)), y)
+    end
 end
 
 function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color)
