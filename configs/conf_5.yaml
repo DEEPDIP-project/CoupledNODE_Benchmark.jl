@@ -44,7 +44,7 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 20
+  nepoch: 1
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   nunroll: 3
   nunroll_valid: 5

@@ -163,6 +163,10 @@ end
 function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color)
     # Load learned parameters
     divergence_dir = joinpath(outdir, closure_name,  "history.jld2")
+    if !ispath(divergence_dir)
+        @warn "Divergence history not found in $divergence_dir"
+        return
+    end
     divergencehistory = namedtupleload(divergence_dir).divergencehistory;
 
     # add No closure only once
@@ -220,6 +224,10 @@ end
 function plot_energy_evolution(outdir, closure_name, nles, Φ, data_index, ax, color)
     # Load learned parameters
     energy_dir = joinpath(outdir, closure_name, "history.jld2")
+    if !ispath(energy_dir)
+        @warn "Energy history not found in $energy_dir"
+        return
+    end
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
     # add No closure only once
@@ -303,6 +311,10 @@ end
 function plot_energy_spectra(outdir, params, closure_name, nles, Φ, data_index, fig, color)
     # Load learned parameters
     energy_dir = joinpath(outdir, closure_name, "solutions.jld2")
+    if !ispath(energy_dir)
+        @warn "Energy spectra not found in $energy_dir"
+        return
+    end
     solutions = namedtupleload(energy_dir);
 
     setup = getsetup(; params, nles)

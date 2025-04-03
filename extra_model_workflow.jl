@@ -250,6 +250,7 @@ end
 # Plot training progress (for a validation data batch).
 
 # Train
+@info "A priori training"
 for i = 1:ntrajectory
 	if i%numtasks == taskid -1
 let
@@ -615,6 +616,7 @@ end
 
 # ### Compute total kinetic energy as a function of time
 
+CUDA.allowscalar() do
 let
     s = length(params.nles), length(params.filters), length(projectorders)
     keys = [:ref, :nomodel, :cnn_prior, :cnn_post]
@@ -706,6 +708,7 @@ let
     end
     jldsave(joinpath(outdir_model, "history.jld2"); energyhistory, divergencehistory)
     clean()
+end
 end
 
 (; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir, "history.jld2"));
