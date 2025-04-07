@@ -149,6 +149,9 @@ function plot_prior(outdir, closure_name, nles, Φ, ax, color)
 end
 
 function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, color)
+    # Load learned parameters
+    posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
+
     label = Φ isa FaceAverage ? "FA" : "VA"
     if closure_name == "INS_ref"
         # Here i need the _checkpoint file generated from PaperDC
