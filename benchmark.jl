@@ -134,7 +134,7 @@ function plot_prior(outdir, closure_name, nles, Φ, ax, color)
     else
         y = priortraining[1].lhist_val
     end
-    
+
     lines!(
         ax,
         y;

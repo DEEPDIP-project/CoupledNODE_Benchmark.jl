@@ -1,4 +1,4 @@
-########################################################################## 
+##########################################################################
 # Benchmark for models that are not of the cnn type so they
 # can not be compared to INS directly.
 ##########################################################################
@@ -218,7 +218,7 @@ using CoupledNODE:Base, AttentionCNN
 ACNN = Base.get_extension(CoupledNODE, :AttentionCNN)
 # Load the modules for CNO
 using ConvolutionalNeuralOperators
-using CoupledNODE:Base, CNO 
+using CoupledNODE:Base, CNO
 CNO = Base.get_extension(CoupledNODE, :CNO)
 
 closure, θ_start, st = NS.load_model(conf)
