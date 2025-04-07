@@ -22,6 +22,4 @@ echo "Slurm array task ID: $SLURM_ARRAY_TASK_ID"
 
 export CONF_FILE=$1
 
-#srun --unbuffered julia --project -t auto -e 'using Pkg; Pkg.update(); Pkg.resolve()'
-#echo "\n***************\nUpdate done"
-julia --project -t auto benchmark.jl
+julia --project -t auto cnn_model_workflow.jl $CONF_FILE
