@@ -31,7 +31,7 @@ closure:
   activations: ["relu", "identity"]
   use_bias: [true, false]
   use_attention: [true, true]
-  emb_sizes: [124,124]
+  emb_sizes: [124, 124]
   Ns: [40, 36]
   patch_sizes: [8, 6]
   n_heads: [4, 4]

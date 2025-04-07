@@ -134,7 +134,7 @@ function plot_prior(outdir, closure_name, nles, Φ, ax, color)
     else
         y = priortraining[1].lhist_val
     end
-    
+
     lines!(
         ax,
         y;
@@ -150,6 +150,7 @@ end
 
 function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, color)
     # Load learned parameters
+    posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
 
     label = Φ isa FaceAverage ? "FA" : "VA"
     if closure_name == "INS_ref"
