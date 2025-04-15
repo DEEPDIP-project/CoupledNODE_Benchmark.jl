@@ -6,9 +6,9 @@ params:
   D: 2
   lims: [0.0, 1.0]
   Re: 6000.0
-  tburn: 0.5
-  tsim: 2.0
-  savefreq: 50
+  tburn: 0.1
+  tsim: 0.2
+  savefreq: 100
   ndns: 4096
   nles: [128]
   filters: ["FaceAverage()"]
@@ -33,7 +33,7 @@ closure:
 priori:
   dotrain: true
   nepoch: 1000
-  batchsize: 64
+  batchsize: 32
   opt: "OptimiserChain(Adam(T(1.0e-2)), ClipGrad(1))"
   do_plot: false
   plot_train: false

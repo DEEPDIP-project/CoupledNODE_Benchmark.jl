@@ -77,7 +77,6 @@ function trainprior(;
             @info "Skipping a-priori training for iteration $(itotal) != $(taskid)"
             continue
         end
-        @info "Step A"
         starttime = time()
         priorfile = getpriorfile(outdir, closure_name, nles, Φ)
         priordir = dirname(priorfile)
@@ -96,7 +95,6 @@ function trainprior(;
             push!(setup, Setup(; x = x, Re = params.Re))
         end
 
-        @info "Step B"
         # Read the data in the format expected by the CoupledNODE
         data_train = []
         for s in dns_seeds_train
@@ -108,7 +106,6 @@ function trainprior(;
             data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
             push!(data_valid, hcat(data_i))
         end
-        @info "Step C"
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
         io_train = NS.create_io_arrays_priori(data_train, setup)
         io_valid = NS.create_io_arrays_priori(data_valid, setup)
@@ -121,7 +118,6 @@ function trainprior(;
         )
         train_data_priori = dataloader_prior()
 
-        @info "Step D"
         loss_priori_lux(closure, θ, st, train_data_priori)
         loss = loss_priori_lux
 
@@ -144,7 +140,6 @@ function trainprior(;
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
         end
-        @info "Step E"
 
         callbackstate, callback = NS.create_callback(
             closure,
@@ -161,7 +156,6 @@ function trainprior(;
             device = device,
         )
 
-        @info "Step F"
 
         if nepochs_left <= 0
             @info "No epochs left to train."
