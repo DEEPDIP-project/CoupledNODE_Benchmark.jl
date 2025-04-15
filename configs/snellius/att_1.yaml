@@ -6,9 +6,9 @@ params:
   D: 2
   lims: [0.0, 1.0]
   Re: 6000.0
-  tburn: 0.1
-  tsim: 0.2
-  savefreq: 100
+  tburn: 0.5
+  tsim: 5.0
+  savefreq: 50
   ndns: 4096
   nles: [128]
   filters: ["FaceAverage()"]
@@ -17,33 +17,40 @@ params:
   bodyforce: "(dim, x, y, t) -> (dim == 1) * 5 * sinpi(8 * y)"
   issteadybodyforce: true
   processors: "(; log = timelogger(; nupdate=100))"
+  Δt: 0.00005
 seeds:
   dns: 123
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "cnn_1"
-  type: cnn
+  name: "att_1"
+  type: attentioncnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
   activations: ["tanh", "tanh", "tanh", "tanh", "identity"]
   use_bias: [true, true, true, true, false]
+  use_attention: [true, true, true, true, true]
+  emb_sizes: [124, 124, 124, 124, 124]
+  Ns: [148, 144, 140, 136, 132]
+  patch_sizes: [37, 36, 35, 34, 33]
+  n_heads: [4, 4, 4, 4, 4]
+  sum_attention: [false, false, false, false, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 1000
-  batchsize: 32
+  nepoch: 5000
+  batchsize: 64
   opt: "OptimiserChain(Adam(T(1.0e-2)), ClipGrad(1))"
   do_plot: false
   plot_train: false
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 50
+  nepoch: 500
   opt: "OptimiserChain(Adam(T(1.0e-2)), ClipGrad(1))"
-  nunroll: 3
-  nunroll_valid: 5
-  dt: T(1e-4)
+  nunroll: 5
+  nunroll_valid: 10
+  dt: T(5e-5)
   do_plot: false
   plot_train: false
