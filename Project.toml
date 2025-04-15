@@ -37,30 +37,11 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 [weakdeps]
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 
-[extras]
-CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
-cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
-AttentionLayer = "3ee63b08-73c5-50c8-acc9-f395aa68c39a"
-
-[sources.CoupledNODE]
-rev = "main"
-url = "https://github.com/DEEPDIP-project/CoupledNODE.jl.git"
-
-[sources.NeuralClosure]
-rev = "main"
-url = "https://github.com/DEEPDIP-project/NeuralClosure.jl.git"
-
-[sources.IncompressibleNavierStokes]
-rev = "v2.1.0"
-url = "https://github.com/agdestein/IncompressibleNavierStokes.jl.git"
-
-[sources.AttentionLayer]
-rev = "main"
-url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"
-
-[sources.ConvolutionalNeuralOperators]
-rev = "main"
-url = "https://github.com/DEEPDIP-project/ConvolutionalNeuralOperators.jl.git"
+[sources]
+AttentionLayer = {rev = "main", url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"}
+ConvolutionalNeuralOperators = {rev = "main", url = "https://github.com/DEEPDIP-project/ConvolutionalNeuralOperators.jl.git"}
+IncompressibleNavierStokes = {rev = "v2.1.0", url = "https://github.com/agdestein/IncompressibleNavierStokes.jl.git"}
+NeuralClosure = {rev = "main", url = "https://github.com/DEEPDIP-project/NeuralClosure.jl.git"}
 
 [compat]
 Accessors = "0.1"
@@ -94,3 +75,8 @@ ParameterSchedulers = "0.4"
 SparseArrays = "1"
 cuDNN = "1"
 julia = "1.11"
+
+[extras]
+AttentionLayer = "3ee63b08-73c5-50c8-acc9-f395aa68c39a"
+CUDSS = "45b445bb-4962-46a0-9369-b4df9d0f772e"
+cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
