@@ -205,14 +205,25 @@ setups = map(nles -> getsetup(; params, nles), params.nles);
 
 ########################################################################## #src
 
-# ## CNN closure model
+# ## Closure model
 
 # All training sessions will start from the same θ₀
 # for a fair comparison.
 
-using Lux:relu
+# Install missing pkgs
+if "AttentionLayer" in keys(Pkg.installed())
+    @info "AttentionLayer already installed"
+else
+    Pkg.add(PackageSpec(rev = "main", url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"))
+end
+if "ConvolutionalNeuralOperators" in keys(Pkg.installed())
+    @info "ConvolutionalNeuralOperators already installed"
+else
+    Pkg.add(PackageSpec(rev = "main", url = "https://github.com/DEEPDIP-project/ConvolutionalNeuralOperators.jl.git"))
+end
 
 # Load the modules for AttentionCNN
+using Lux:relu
 using AttentionLayer
 using CoupledNODE:Base, AttentionCNN
 ACNN = Base.get_extension(CoupledNODE, :AttentionCNN)
