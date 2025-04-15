@@ -29,7 +29,7 @@ closure:
   size: 128
   cutoff: 10
   channels: [24, 24, 24, 24, 2]
-  activations: ["tanh", "tanh", "tanh", "tanh", "identity"]
+  activations: ["relu", "relu", "relu", "relu", "identity"]
   down_factors: [2, 2, 2, 2, 2]
   radii: [2, 2, 2, 2, 2]
   bottleneck_depths: [2, 2, 2, 2, 2]
