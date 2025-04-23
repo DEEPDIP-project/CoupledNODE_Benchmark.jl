@@ -119,6 +119,7 @@ end
 function plot_prior(outdir, closure_name, nles, Φ, ax, color)
     # Load learned parameters
     priortraining = loadprior(outdir, closure_name, [nles], [Φ])
+
     label = "No closure (n = $nles)"
     if _missing_label(ax, label)  # add No closure only once
         lines!(
@@ -168,7 +169,7 @@ function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, colo
         y = posttraining[1].lhist_val
         x = collect(1:length(y))
     end
-    ax.xticks = 1:length(y)  # because y is "iteration", it should be integer
+
     scatterlines!(
         ax,
         x,
@@ -179,6 +180,9 @@ function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, colo
         marker = :circle,
         color = color, # dont change this color
     )
+
+    # TODO: check if ticks are overwriting each other
+    ax.xticks = 1:length(y)  # because y is "iteration", it should be integer
 
     ax = _update_ax_limits(ax, x, y)
 end
@@ -433,6 +437,46 @@ function _convert_to_single_index(i, j, k, dimj, dimk)
     return (i - 1) * dimj * dimk + (j - 1) * dimk + k
 end
 
+function plot_prior_time(outdir, closure_name, nles, Φ, model_index, ax, color)
+    # Load learned parameters
+    priortraining = loadprior(outdir, closure_name, [nles], [Φ])
+
+    # training time in seconds
+    training_time = map(p -> p.comptime, priortraining) |> vec .|> x -> round(x; digits = 3)
+
+    label = Φ isa FaceAverage ? "FA" : "VA"
+    barplot!(
+        ax,
+        [model_index],
+        training_time;
+        label = "$closure_name (n = $nles, $label)",
+        color = color, # dont change this color
+    )
+
+end
+
+function plot_posteriori_time(outdir, closure_name, nles, Φ, projectorders, model_index, ax, color)
+
+    if closure_name == "INS_ref"
+        postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1])
+        check = namedtupleload(postfile)
+        training_time = [round(check.callbackstate.ctime; digits = 3)]
+    else
+        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
+        training_time = map(p -> p.comptime, posttraining) |> vec .|> x -> round(x; digits = 3)
+    end
+
+    label = Φ isa FaceAverage ? "FA" : "VA"
+    barplot!(
+        ax,
+        [model_index],
+        training_time;
+        label = "$closure_name (n = $nles, $label)",
+        color = color, # dont change this color
+    )
+
+end
+
 # Loop over plot types and configurations
 plot_labels = Dict(
     :prior_error => (
@@ -458,11 +502,19 @@ plot_labels = Dict(
     :energy_spectra => (
         title  = "Energy spectra",
     ),
+    :prior_time => (
+        title  = "A-priori time for different configurations",
+        xlabel = "Model",
+        ylabel = "Training time (s)",
+    ),
+    :posteriori_time => (
+        title  = "A-posteriori time for different configurations",
+        xlabel = "Model",
+        ylabel = "Training time (s)",
+    ),
 )
 
 set_theme!(palette = palette)
-
-
 
 for key in keys(plot_labels)
     @info "Plotting $key"
@@ -477,6 +529,10 @@ for key in keys(plot_labels)
             ylabel = plot_labels[key].ylabel,
         )
     end
+
+    # empty list for barplots
+    bar_positions = Int[]
+    bar_labels = String[]
 
     # Loop over the configurations
     for (i, conf_file) in enumerate(list_confs)
@@ -529,6 +585,19 @@ for key in keys(plot_labels)
                     plot_energy_spectra(
                         outdir, params, closure_name, nles, Φ, data_index, fig[i, :], color
                     )
+                elseif key == :prior_time
+                    plot_prior_time(
+                        outdir, closure_name, nles, Φ, col_index, ax, color
+                    )
+                    push!(bar_positions, col_index)
+                    push!(bar_labels, "$closure_name")
+                elseif key == :posteriori_time
+                    projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+                    plot_posteriori_time(
+                        outdir, closure_name, nles, Φ, projectorders, col_index, ax, color
+                    )
+                    push!(bar_positions, col_index)
+                    push!(bar_labels, "$closure_name")
                 end
             end
         end
@@ -536,6 +605,13 @@ for key in keys(plot_labels)
     # Add legend
     if key != :energy_spectra
         axislegend(ax, position = :rt)
+    end
+
+    # Add xticks in barplot
+    if key == :prior_time || key == :posteriori_time
+        @info bar_positions
+        @info bar_labels
+        ax.xticks = (bar_positions, bar_labels)
     end
 
     # Display and save the figure
