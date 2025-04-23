@@ -8,7 +8,9 @@ end
 @info VERSION
 
 # Color palette for consistent theme throughout paper
-palette = (; color = ["#3366cc", "#cc0000", "#669900", "#ff9900"])
+# Colors: Rich Red, Olive Green, Warm Orange, Deep Purple, Coral Pink, Teal
+# if you have more than 6 models, you can add more colors to the palette
+palette = (; color = ["#cc0000", "#669900", "#ff9900", "#9933cc", "#ff6666", "#66cccc"])
 
 # Identify the models that have been trained
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
@@ -130,27 +132,27 @@ function plot_prior(outdir, closure_name, nles, Φ, ax, color)
     end
     label = Φ isa FaceAverage ? "FA" : "VA"
     if closure_name == "INS_ref"
-        y = priortraining[1].hist
+        y = [p[2] for p in priortraining[1].hist]
+        x = [p[1] for p in priortraining[1].hist]
     else
         y = priortraining[1].lhist_val
+        x = collect(1:length(y))
     end
 
     lines!(
         ax,
+        x,
         y;
         label = "$closure_name (n = $nles, $label)",
         color = color, # dont change this color
         linestyle = PLOT_STYLES[:prior].linestyle,
         linewidth = PLOT_STYLES[:prior].linewidth,
     )
-    if closure_name !== "INS_ref"
-        ax = _update_ax_limits(ax, collect(1:length(y)), y)
-    end
+
+    ax = _update_ax_limits(ax, x, y)
 end
 
 function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, color)
-    # Load learned parameters
-    posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
 
     label = Φ isa FaceAverage ? "FA" : "VA"
     if closure_name == "INS_ref"
@@ -159,15 +161,17 @@ function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, colo
         checkfile = join(splitext(postfile), "_checkpoint")
         check = namedtupleload(checkfile)
         (; hist) = check.callbackstate
-        y = hist
+        y = [p[2] for p in hist]
+        x = [p[1] for p in hist]
     else
         posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
-        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
         y = posttraining[1].lhist_val
+        x = collect(1:length(y))
     end
     ax.xticks = 1:length(y)  # because y is "iteration", it should be integer
     scatterlines!(
         ax,
+        x,
         y;
         label = "$closure_name (n = $nles, $label)",
         linestyle = PLOT_STYLES[:post].linestyle,  # should not interpolate between points
@@ -175,9 +179,8 @@ function plot_posteriori(outdir, closure_name, nles, Φ, projectorders, ax, colo
         marker = :circle,
         color = color, # dont change this color
     )
-    if closure_name !== "INS_ref"
-        ax = _update_ax_limits(ax, collect(1:length(y)), y)
-    end
+
+    ax = _update_ax_limits(ax, x, y)
 end
 
 function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color)
@@ -459,6 +462,8 @@ plot_labels = Dict(
 
 set_theme!(palette = palette)
 
+
+
 for key in keys(plot_labels)
     @info "Plotting $key"
 
@@ -480,52 +485,52 @@ for key in keys(plot_labels)
 
         # Loop over the parameters
         CUDA.allowscalar() do
-        for (ig, nles) in enumerate(params.nles),
-            (ifil, Φ) in enumerate(params.filters)
+            for (ig, nles) in enumerate(params.nles),
+                (ifil, Φ) in enumerate(params.filters)
 
-            # make sure each combination has a consistent color
-            #TODO this function should be tested
-            col_index = _convert_to_single_index(
-                i, ig, ifil, length(params.nles), length(params.filters)
-            )
-            color = Cycled(col_index + 1)
-
-            data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
-
-            if key == :prior_error
-                plot_prior(
-                    outdir, closure_name, nles, Φ, ax, color
+                # make sure each combination has a consistent color
+                #TODO this function should be tested
+                col_index = _convert_to_single_index(
+                    i, ig, ifil, length(params.nles), length(params.filters)
                 )
+                color = Cycled(col_index + 1)
 
-            elseif key == :posteriori_error
-                projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-                plot_posteriori(
-                    outdir, closure_name, nles, Φ, projectorders, ax, color
-                )
+                data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
 
-            elseif key == :divergence
+                if key == :prior_error
+                    plot_prior(
+                        outdir, closure_name, nles, Φ, ax, color
+                    )
 
-                plot_divergence(
-                    outdir, closure_name, nles, Φ, data_index, ax, color
-                )
+                elseif key == :posteriori_error
+                    projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+                    plot_posteriori(
+                        outdir, closure_name, nles, Φ, projectorders, ax, color
+                    )
 
-            elseif key == :energy_evolution
-                plot_energy_evolution(
-                    outdir, closure_name, nles, Φ, data_index, ax, color
-                )
+                elseif key == :divergence
 
-            elseif key== :energy_spectra
-                Label(
-                    fig[0, :],
-                    "Energy spectra for different configurations";
-                    font = :bold,
-                    tellwidth=false,
-                )
-                plot_energy_spectra(
-                    outdir, params, closure_name, nles, Φ, data_index, fig[i, :], color
-                )
+                    plot_divergence(
+                        outdir, closure_name, nles, Φ, data_index, ax, color
+                    )
+
+                elseif key == :energy_evolution
+                    plot_energy_evolution(
+                        outdir, closure_name, nles, Φ, data_index, ax, color
+                    )
+
+                elseif key== :energy_spectra
+                    Label(
+                        fig[0, :],
+                        "Energy spectra for different configurations";
+                        font = :bold,
+                        tellwidth=false,
+                    )
+                    plot_energy_spectra(
+                        outdir, params, closure_name, nles, Φ, data_index, fig[i, :], color
+                    )
+                end
             end
-        end
         end
     end
     # Add legend
