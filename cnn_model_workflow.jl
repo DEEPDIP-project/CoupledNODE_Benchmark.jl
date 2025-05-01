@@ -440,10 +440,12 @@ let
         setup = getsetup(; params, nles)
         data = map(s -> namedtupleload(getdatafile(outdir, nles, Φ, s)), dns_seeds_test)
         testset = create_io_arrays(data, setup)
-        i = 1:min(1000, size(testset.u, 4))
+        #i = 1:min(1000, size(testset.u, 4))
+        i = 1:size(testset.u, 4)
         u, c = testset.u[:, :, :, i], testset.c[:, :, :, i]
         testset = (u, c) |> device
-        priori_err(θ) = loss_priori_lux(closure, θ, st, testset)
+        #priori_err(θ) = loss_priori_lux(closure, θ, st, testset)
+        priori_err(θ) = create_relerr_prior(closure, st, testset...)
         eprior.prior[ig, ifil] = priori_err(device(θ_cnn_prior[ig, ifil]))[1]
         for iorder in eachindex(projectorders)
             eprior.post[ig, ifil, iorder] = priori_err(device(θ_cnn_post[ig, ifil, iorder]))[1]
@@ -487,19 +489,23 @@ let
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
         )
-        dt = T(1e-3)
+        dt = T(data.t[2] - data.t[1])
+        tspan = (data.t[1], data.t[end])
 
         ## No model
         dudt_nomod = NS.create_right_hand_side(
             setup, psolver)
-        err_post = create_loss_post_lux(dudt_nomod; sciml_solver = Tsit5(), dt = dt, use_cuda = CUDA.functional())
-        epost.nomodel[I] = err_post(closure, θ_cnn_post[I].*0 , st, data)[1]
+        #err_post = create_loss_post_lux(dudt_nomod; sciml_solver = Tsit5(), dt = dt, use_cuda = CUDA.functional())
+        #epost.nomodel[I] = err_post(closure, θ_cnn_post[I].*0 , st, data)[1]
+        epost.nomodel[I] = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , dt, tspan, data)
         # with closure
         dudt = NS.create_right_hand_side_with_closure(
             setup, psolver, closure, st)
-        err_post = create_loss_post_lux(dudt; sciml_solver = Tsit5(), dt = dt, use_cuda = CUDA.functional())
-        epost.cnn_prior[I] = err_post(closure, device(θ_cnn_prior[ig, ifil]), st, data)[1]
-        epost.cnn_post[I] =  err_post(closure, device(θ_cnn_post[I]), st, data)[1]
+        #err_post = create_loss_post_lux(dudt; sciml_solver = Tsit5(), dt = dt, use_cuda = CUDA.functional())
+        #epost.cnn_prior[I] = err_post(closure, device(θ_cnn_prior[ig, ifil]), st, data)[1]
+        #epost.cnn_post[I] =  err_post(closure, device(θ_cnn_post[I]), st, data)[1]
+        epost.cnn_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data)
+        epost.cnn_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data)
         clean()
     end
     jldsave(joinpath(outdir_model, "epost.jld2"); epost...)

@@ -343,3 +343,36 @@ function trainpost(;
     end
     @info "Finished a-posteriori training."
 end
+
+function create_relerr_prior(closure, st, x, y)
+    return θ -> let
+        y_pred, _ = Lux.apply(closure, x, θ, st)[1:2]
+        norm(y_pred - y) / norm(y)
+    end
+end
+
+function compute_epost(rhs, ps, dt, tspan, (u, t))
+    griddims = ignore_derivatives() do
+        ((:) for _ = 1:(ndims(u)-2))
+    end
+    x = u[griddims..., :, 1] |> dev
+    y = u[griddims..., :, 2:end] |> dev # remember to discard sol at the initial time step
+    prob = ODEProblem(rhs, x, tspan, ps)
+    pred = dev(
+        ArrayType(
+            solve(
+                prob,
+                Tsist5();
+                u0 = x,
+                p = ps,
+                adaptive = false,
+                saveat = Array(t),
+                dt = dt,
+                tspan = tspan,
+            ),
+        ),
+    )
+    a = sum(y[griddims..., :, 1:(size(pred, 4)-1)] - pred[griddims..., :, 2:end])
+    b = sum(abs2, y[griddims..., :, 1:(size(pred, 4)-1)])
+    return mean(sqrt.(a) ./ sqrt.(b))
+end
