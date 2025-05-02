@@ -92,6 +92,7 @@ function plot_posteriori(
         marker = :circle,
         color = color, # dont change this color
     )
+    @warn "y length is $(length(y))"
     if closure_name !== "INS_ref"
         ax = _update_ax_limits(ax, collect(1:length(y)), y)
     end
