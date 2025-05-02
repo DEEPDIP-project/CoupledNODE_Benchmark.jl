@@ -43,10 +43,10 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 20
+  nepoch: 2
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(1))"
-  nunroll: 3
-  nunroll_valid: 5
+  nunroll: 2
+  nunroll_valid: 3
   dt: T(1e-4)
   do_plot: false
   plot_train: false

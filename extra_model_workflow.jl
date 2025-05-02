@@ -149,7 +149,7 @@ else
     ## you want to test run on a laptop.
     @warn "Running on CPU"
     cuda_active = false
-    backend = CPU()
+    backend = IncompressibleNavierStokes.CPU()
     device = identity
     clean() = nothing
 end
@@ -459,13 +459,12 @@ let
         setup = getsetup(; params, nles)
         data = map(s -> namedtupleload(getdatafile(outdir, nles, Φ, s)), dns_seeds_test)
         testset = create_io_arrays(data, setup)
-        i = 1:min(1000, size(testset.u, 4))
+        i = 1:min(100, size(testset.u, 4))
         u, c = testset.u[:, :, :, i], testset.c[:, :, :, i]
         testset = (u, c) |> device
-        priori_err(θ) = loss_priori_lux(closure, θ, st, testset)
-        eprior.prior[ig, ifil] = priori_err(device(θ_cnn_prior[ig, ifil]))[1]
+        eprior.prior[ig, ifil] = compute_eprior(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)
         for iorder in eachindex(projectorders)
-            eprior.post[ig, ifil, iorder] = priori_err(device(θ_cnn_post[ig, ifil, iorder]))[1]
+            eprior.post[ig, ifil, iorder] = compute_eprior(closure, device(θ_cnn_post[ig, ifil, iorder]), st, testset...)
         end
     end
     jldsave(joinpath(outdir_model, "eprior.jld2"); eprior...)
@@ -506,19 +505,18 @@ let
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
         )
-        dt = T(1e-3)
+        dt = T(data.t[2] - data.t[1])
+        tspan = (data.t[1], data.t[end])
 
         ## No model
         dudt_nomod = NS.create_right_hand_side(
             setup, psolver)
-        err_post = create_loss_post_lux(dudt_nomod; sciml_solver = Tsit5(), dt = dt, use_cuda = CUDA.functional())
-        epost.nomodel[I] = err_post(closure, θ_cnn_post[I].*0 , st, data)[1]
+        epost.nomodel[I] = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , dt, tspan, data, device)
         # with closure
         dudt = NS.create_right_hand_side_with_closure(
             setup, psolver, closure, st)
-        err_post = create_loss_post_lux(dudt; sciml_solver = Tsit5(), dt = dt, use_cuda = CUDA.functional())
-        epost.cnn_prior[I] = err_post(closure, device(θ_cnn_prior[ig, ifil]), st, data)[1]
-        epost.cnn_post[I] =  err_post(closure, device(θ_cnn_post[I]), st, data)[1]
+        epost.cnn_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
+        epost.cnn_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data, device)
         clean()
     end
     jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
@@ -630,7 +628,7 @@ end
 CUDA.allowscalar() do
 let
     s = length(params.nles), length(params.filters), length(projectorders)
-    keys = [:ref, :nomodel, :cnn_prior, :cnn_post]
+    keys = [:model_prior, :model_post]
     divergencehistory = (; map(k -> k => fill(Point2f[], s), keys)...)
     energyhistory = (; map(k -> k => fill(Point2f[], s), keys)...)
     for (iorder, projectorder) in enumerate(projectorders),
@@ -645,76 +643,70 @@ let
         ustart = selectdim(sample.u, ndims(sample.u), 1) |> collect |> device
         T = eltype(ustart)
 
-        # Shorter time for DIF
-        t_DIF = T(1)
+        θ_prior = device(θ_cnn_prior[ig, ifil])
+        θ_post = device(θ_cnn_post[I])
 
-        # Reference trajectories
-        divergencehistory.ref[I] = let
+        dt = T(sample.t[2] - sample.t[1])
+        tspan = (sample.t[1], sample.t[end])
+        dt_sample = T(0.05) # Sample every 0.05 seconds for the history (same as INS)
+        tsave = (x*dt_sample for x in 1:(floor(Int, length(sample.t) / 0.05)+1))
+
+
+        dudt = NS.create_right_hand_side_with_closure(
+            setup, psolver, closure, st)
+
+        griddims = ((:) for _ = 1:(ndims(ustart)-1))
+        x = ustart[griddims..., :, 1] |> device
+        prob_prior = ODEProblem(dudt, x, tspan, θ_prior)
+        pred_prior =
+                solve(
+                    prob_prior,
+                    Tsit5();
+                    u0 = x,
+                    p = θ_prior,
+                    adaptive = false,
+                    saveat = tsave,
+                    dt = dt,
+                    tspan = tspan,
+                )
+        pred_prior = Array(collect(pred_prior.u))
+
+        prob_post = ODEProblem(dudt, x, tspan, θ_post)
+        pred_post =
+                solve(
+                    prob_post,
+                    Tsit5();
+                    u0 = x,
+                    p = θ_post,
+                    adaptive = false,
+                    saveat = tsave,
+                    dt = dt,
+                    tspan = tspan,
+                )
+        pred_post = Array(collect(pred_post.u))
+
+        for it in 1:size(pred_prior, ndims(pred_prior))
+            t = (it-1)*dt_sample
             div = scalarfield(setup)
-            udev = vectorfield(setup)
-            it = 1:5:length(sample.t)
-            map(it) do it
-                t = sample.t[it]
-                u = selectdim(sample.u, ndims(sample.u), it)
-                copyto!(udev, u)
-                IncompressibleNavierStokes.divergence!(div, udev, setup)
-                d = view(div, setup.grid.Ip)
-                d = sum(abs2, d) / length(d)
-                d = sqrt(d)
-                Point2f(t, d)
-            end
-        end
-        energyhistory.ref[I] = let
-            it = 1:5:length(sample.t)
-            udev = vectorfield(setup)
-            map(it) do it
-                t = sample.t[it]
-                u = selectdim(sample.u, ndims(sample.u), it)
-                copyto!(udev, u)
-                Point2f(t, total_kinetic_energy(udev, setup))
-            end
-        end
+            #u_prior = selectdim(pred_prior, ndims(pred_prior), it) |> collect |> device
+            u_prior = pred_prior[it] |> collect |> device
+            IncompressibleNavierStokes.divergence!(div, u_prior, setup)
+            d = view(div, setup.grid.Ip)
+            d = sum(abs2, d) / length(d)
+            d = sqrt(d)
+            push!(divergencehistory[:model_prior][I], Point2f(t, d))
+            e = total_kinetic_energy(u_prior, setup)
+            push!(energyhistory[:model_prior][I], Point2f(t, e))
 
-        nupdate = 5
-        writer = processor() do state
-            div = scalarfield(setup)
-            dhist = Point2f[]
-            ehist = zeros(Point2f, 0)
-            on(state) do (; u, t, n)
-                if n % nupdate == 0
-                    IncompressibleNavierStokes.divergence!(div, u, setup)
-                    d = view(div, setup.grid.Ip)
-                    d = sum(abs2, d) / length(d)
-                    d = sqrt(d)
-                    push!(dhist, Point2f(t, d))
-                    e = total_kinetic_energy(u, setup)
-                    push!(ehist, Point2f(t, e))
-                end
-            end
-            state[] = state[] # Compute initial divergence
-            (; dhist, ehist)
-        end
-
-        for (sym, closure_model, θ) in [
-            (:nomodel, nothing, nothing),
-            (:cnn_prior, wrappedclosure(closure_INS, setup), device(θ_cnn_prior[ig, ifil])),
-            (:cnn_post, wrappedclosure(closure_INS, setup), device(θ_cnn_post[I])),
-        ]
-            _, results = solve_unsteady(;
-                setup = (; setup..., closure_model),
-                ustart,
-                tlims = (
-                    sample.t[1],
-                    projectorder == ProjectOrder.First ? t_DIF : sample.t[end],
-                ),
-                Δt_min = T(1e-5),
-                method = RKProject(params.method, projectorder),
-                processors = (; writer, logger = timelogger(; nupdate = 500)),
-                psolver,
-                θ,
-            )
-            divergencehistory[sym][I] = results.writer.dhist
-            energyhistory[sym][I] = results.writer.ehist
+            #u_post = selectdim(pred_post, ndims(pred_post), it) |> collect |> device
+            u_post = pred_post[it] |> collect |> device
+            IncompressibleNavierStokes.divergence!(div, u_post, setup)
+            d = view(div, setup.grid.Ip)
+            d = sum(abs2, d) / length(d)
+            d = sqrt(d)
+            push!(divergencehistory[:model_post][I], Point2f(t, d))
+            e = total_kinetic_energy(u_post, setup)
+            push!(energyhistory[:model_post][I], Point2f(t, e))
         end
     end
     jldsave(joinpath(outdir_model, "history.jld2"); energyhistory, divergencehistory)
@@ -722,21 +714,17 @@ let
 end
 end
 
-(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir, "history.jld2"));
+(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir_model, "history.jld2"));
 
 ########################################################################## #src
 
 # Check that energy is within reasonable bounds
-energyhistory.ref .|> extrema
-energyhistory.nomodel .|> extrema
-energyhistory.cnn_prior .|> extrema
-energyhistory.cnn_post .|> extrema
+energyhistory.model_prior .|> extrema
+energyhistory.model_post .|> extrema
 
 # Check that divergence is within reasonable bounds
-divergencehistory.ref .|> extrema
-divergencehistory.nomodel .|> extrema
-divergencehistory.cnn_prior .|> extrema
-divergencehistory.cnn_post .|> extrema
+divergencehistory.model_prior .|> extrema
+divergencehistory.model_post .|> extrema
 
 ########################################################################## #src
 
@@ -778,10 +766,8 @@ with_theme(; palette) do
             # xlims!(ax, (0.0, 1.0))
             # ylims!(ax, (1.3, 2.3))
             plots = [
-                (energyhistory.nomodel, :solid, 1, "No closure"),
-                (energyhistory.cnn_prior, :solid, 3, "CNN (prior)"),
-                (energyhistory.cnn_post, :solid, 4, "CNN (post)"),
-                (energyhistory.ref, :dash, 1, "Reference"),
+                (energyhistory.model_prior, :solid, 3, "Model (prior)"),
+                (energyhistory.model_post, :solid, 4, "Model (post)"),
             ]
             for (p, linestyle, i, label) in plots
                 lines!(ax, p[I]; color = Cycled(i), linestyle, label)
@@ -889,16 +875,8 @@ with_theme(; palette) do
                 yticksvisible = iorder == 1,
                 yticklabelsvisible = iorder == 1,
             )
-            lines!(ax, divergencehistory.nomodel[I]; label = "No closure")
-            lines!(ax, divergencehistory.cnn_prior[I]; label = "CNN (prior)")
-            lines!(ax, divergencehistory.cnn_post[I]; label = "CNN (post)")
-            lines!(
-                ax,
-                divergencehistory.ref[I];
-                color = Cycled(1),
-                linestyle = :dash,
-                label = "Reference",
-            )
+            lines!(ax, divergencehistory.model_prior[I]; label = "Model (prior)")
+            lines!(ax, divergencehistory.model_post[I]; label = "Model (post)")
             islog && ylims!(ax, (T(1e-6), T(1e3)))
             iorder == 1 && xlims!(ax, (-0.05, 1.05))
         end
@@ -919,7 +897,7 @@ end
 let
     s = length(params.nles), length(params.filters), length(projectorders)
     temp = zeros(T, ntuple(Returns(0), params.D + 1))
-    keys = [:ref, :nomodel, :cnn_prior, :cnn_post]
+    keys = [:ref, :nomodel, :model_prior, :model_post]
     times = T[0.1, 0.5, 1.0, 5.0]
     itime_max_DIF = 3
     times_exact = copy(times)
@@ -936,7 +914,7 @@ let
         ustart = selectdim(sample.u, ndims(sample.u), 1) |> collect
         t = sample.t
 
-        function solve(ustart, tlims, closure_model, θ)
+        function INS_solve(ustart, tlims, closure_model, θ)
             result = solve_unsteady(;
                 setup = (; setup..., closure_model),
                 ustart = device(ustart),
@@ -945,8 +923,6 @@ let
                 psolver,
                 θ,
             )[1].u |> Array
-            #@info result
-            #Array(result)
         end
         t1 = t[1]
         for i in eachindex(times)
@@ -971,20 +947,50 @@ let
 
             # Compute fields
             utimes[i].ref[I] = selectdim(sample.u, ndims(sample.u), it) |> collect
-            utimes[i].nomodel[I] = solve(getprev(i, :nomodel), tlims, nothing, nothing)
-            #utimes[i].nomodel[I,:] = solve(getprev(i, :nomodel), tlims, nothing, nothing)
-            utimes[i].cnn_prior[I] = solve(
-                getprev(i, :cnn_prior),
-                tlims,
-                wrappedclosure(closure_INS, setup),
-                device(θ_cnn_prior[igrid, ifil]),
+            utimes[i].nomodel[I] = INS_solve(getprev(i, :nomodel), tlims, nothing, nothing)
+
+        end
+
+        θ_prior = device(θ_cnn_prior[I])
+        θ_post = device(θ_cnn_post[I])
+
+        dt = T(1e-4)
+        tspan = (T(0), times[end]+T(1e-4))
+
+        dudt = NS.create_right_hand_side_with_closure(
+            setup, psolver, closure, st)
+
+        griddims = ((:) for _ = 1:(ndims(ustart)-1))
+        x = ustart[griddims..., :, 1] |> device
+        prob_prior = ODEProblem(dudt, x, tspan, θ_prior)
+        pred_prior =
+            solve(
+                    prob_prior,
+                    Tsit5();
+                    u0 = x,
+                    p = θ_prior,
+                    adaptive = true,
+                    saveat = times,
+                    dt = dt,
+                    tspan = tspan,
             )
-            utimes[i].cnn_post[I] = solve(
-                getprev(i, :cnn_post),
-                tlims,
-                wrappedclosure(closure_INS, setup),
-                device(θ_cnn_post[I]),
+        prob_post = ODEProblem(dudt, x, tspan, θ_post)
+        pred_post =
+            solve(
+                    prob_post,
+                    Tsit5();
+                    u0 = x,
+                    p = θ_post,
+                    adaptive = true,
+                    saveat = times,
+                    dt = dt,
+                    tspan = tspan,
             )
+
+        for it in 1:length(times)
+            # Compute fields
+            utimes[it].model_prior[I] = collect(pred_prior.u[it]) |> CPUDevice()
+            utimes[it].model_post[I] = collect(pred_post.u[it]) |> CPUDevice()
         end
         clean()
     end
@@ -1021,7 +1027,7 @@ with_theme(; palette) do
 
                 fields = map(
                     k -> solutions.u[itime][k][igrid, ifil, iorder] |> device,
-                    [:ref, :nomodel, :cnn_prior, :cnn_post],
+                    [:ref, :nomodel, :model_prior, :model_post],
                 )
                 specs = map(fields) do u
                     state = (; u)
@@ -1175,6 +1181,10 @@ end
 # Export to PNG, otherwise each volume gets represented
 # as a separate rectangle in the PDF
 # (takes time to load in the article PDF)
+if !isdefined(Main, :GLMakie)
+    @warn "GLMakie not installed, so the field plots will not be generated"
+    exit(0)
+end
 using GLMakie
 GLMakie.activate!()
 

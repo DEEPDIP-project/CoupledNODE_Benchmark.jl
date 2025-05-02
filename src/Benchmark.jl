@@ -5,6 +5,7 @@ module Benchmark
 
 using Accessors
 using Adapt
+using CairoMakie # for plotting
 using ComponentArrays
 using CoupledNODE
 using CoupledNODE: loss_priori_lux, create_loss_post_lux
@@ -25,6 +26,8 @@ using NeuralClosure
 using Observables
 using Optimisers
 using Random
+using Statistics: mean
+NS = Base.get_extension(CoupledNODE, :NavierStokes)
 
 "Write output to file, as the default SLURM file is not updated often enough."
 function setsnelliuslogger(logfile)
@@ -82,6 +85,8 @@ end
 include("observe.jl")
 include("rk.jl")
 include("train.jl")
+include("io.jl")
+include("plots.jl")
 
 export setsnelliuslogger
 export namedtupleload, splatfileparts
@@ -91,5 +96,11 @@ export getdatafile, createdata, getsetup
 export trainprior, loadprior
 export trainpost, loadpost
 export trainsmagorinsky, loadsmagorinsky
+
+export read_config, check_necessary_files
+export _convert_to_single_index,
+    plot_prior, plot_posteriori, plot_divergence, plot_energy_evolution, plot_energy_spectra
+
+export compute_eprior, compute_epost
 
 end # module Benchmark
