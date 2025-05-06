@@ -2,8 +2,8 @@
 function _update_ax_limits(ax, x, y)
     # Get data limits with extra padding for the legend
     (xmin, xmax), (ymin, ymax) = extrema(x), extrema(y)
-    xmax += (xmax - xmin) * 0.5
-    ymax += (ymax - ymin) * 0.5
+    xmax += (xmax - xmin) * 0.5 + max(1e-6, abs(xmax) * 1e-6)
+    ymax += (ymax - ymin) * 0.5 + max(1e-6, abs(ymax) * 1e-6)
 
     # Get current axis limits
     current_xmin, current_xmax = something(ax.limits[][1], (xmin, xmax))
@@ -81,7 +81,6 @@ function plot_posteriori(
         y = [p[2] for p in hist]
         x = [p[1] for p in hist]
     else
-        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
         posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
         y = posttraining[1].lhist_val
         x = collect(1:length(y))
@@ -429,8 +428,8 @@ function plot_posteriori_time(outdir, closure_name, nles, Φ, projectorders, mod
 
     if closure_name == "INS_ref"
         postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1])
-        check = namedtupleload(postfile)
-        training_time = [round(check.callbackstate.ctime; digits = 3)]
+        posttraining = namedtupleload(postfile)
+        training_time = [round(posttraining.single_stored_object.comptime; digits = 3)]
     else
         posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
         training_time = map(p -> p.comptime, posttraining) |> vec .|> x -> round(x; digits = 3)

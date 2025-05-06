@@ -140,77 +140,78 @@ for key in keys(plot_labels)
             for (ig, nles) in enumerate(params.nles),
                 (ifil, Φ) in enumerate(params.filters)
 
-            projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-            if length(projectorders) > 1
-                @warn "Multiple project orders found in configuration $conf_file. Do not know how to handle this yet."
-                continue
-            end
-
-            if !check_necessary_files(
-                outdir,
-                closure_name,
-                nles,
-                Φ,
-                projectorders[1],
-            )
-                @error "Some files are missing for configuration $conf_file. Skipping"
-                continue
-            end
-
-            # make sure each combination has a consistent color
-            #TODO this function should be tested
-            col_index = _convert_to_single_index(
-                i, ig, ifil, length(params.nles), length(params.filters)
-            )
-            color = Cycled(col_index + 1)
-
-            data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
-
-            if key == :prior_error
-                plot_prior(
-                    outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES
-                )
-
-            elseif key == :posteriori_error
                 projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-                plot_posteriori(
-                    outdir, closure_name, nles, Φ, projectorders, ax, color, PLOT_STYLES
-                )
+                if length(projectorders) > 1
+                    @warn "Multiple project orders found in configuration $conf_file. Do not know how to handle this yet."
+                    continue
+                end
 
-            elseif key == :divergence
-                plot_divergence(
-                    outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
+                if !check_necessary_files(
+                    outdir,
+                    closure_name,
+                    nles,
+                    Φ,
+                    projectorders[1],
                 )
+                    @error "Some files are missing for configuration $conf_file. Skipping"
+                    continue
+                end
 
-            elseif key == :energy_evolution
-                plot_energy_evolution(
-                    outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
+                # make sure each combination has a consistent color
+                #TODO this function should be tested
+                col_index = _convert_to_single_index(
+                    i, ig, ifil, length(params.nles), length(params.filters)
                 )
+                color = Cycled(col_index + 1)
 
-            elseif key== :energy_spectra
-                Label(
-                    fig[0, :],
-                    "Energy spectra for different configurations";
-                    font = :bold,
-                    tellwidth=false,
-                )
-                plot_energy_spectra(
-                    outdir, params, closure_name, nles, Φ, data_index, fig[i, :], color, PLOT_STYLES
-                )
+                data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
 
-            elseif key == :prior_time
-                plot_prior_time(
-                    outdir, closure_name, nles, Φ, col_index, ax, color
-                )
-                push!(bar_positions, col_index)
-                push!(bar_labels, "$closure_name")
-            elseif key == :posteriori_time
-                projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-                plot_posteriori_time(
-                    outdir, closure_name, nles, Φ, projectorders, col_index, ax, color
-                )
-                push!(bar_positions, col_index)
-                push!(bar_labels, "$closure_name")
+                if key == :prior_error
+                    plot_prior(
+                        outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES
+                    )
+
+                elseif key == :posteriori_error
+                    projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+                    plot_posteriori(
+                        outdir, closure_name, nles, Φ, projectorders, ax, color, PLOT_STYLES
+                    )
+
+                elseif key == :divergence
+                    plot_divergence(
+                        outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
+                    )
+
+                elseif key == :energy_evolution
+                    plot_energy_evolution(
+                        outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
+                    )
+
+                elseif key== :energy_spectra
+                    Label(
+                        fig[0, :],
+                        "Energy spectra for different configurations";
+                        font = :bold,
+                        tellwidth=false,
+                    )
+                    plot_energy_spectra(
+                        outdir, params, closure_name, nles, Φ, data_index, fig[i, :], color, PLOT_STYLES
+                    )
+
+                elseif key == :prior_time
+                    plot_prior_time(
+                        outdir, closure_name, nles, Φ, col_index, ax, color
+                    )
+                    push!(bar_positions, col_index)
+                    push!(bar_labels, "$closure_name")
+                elseif key == :posteriori_time
+                    projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+                    plot_posteriori_time(
+                        outdir, closure_name, nles, Φ, projectorders, col_index, ax, color
+                    )
+                    push!(bar_positions, col_index)
+                    push!(bar_labels, "$closure_name")
+                end
             end
         end
     end
@@ -221,8 +222,6 @@ for key in keys(plot_labels)
 
     # Add xticks in barplot
     if key == :prior_time || key == :posteriori_time
-        @info bar_positions
-        @info bar_labels
         ax.xticks = (bar_positions, bar_labels)
     end
 
