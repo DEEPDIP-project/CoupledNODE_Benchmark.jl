@@ -67,6 +67,7 @@ PLOT_STYLES = Dict(
     :prior => (color="black", linestyle=:solid, linewidth=1),
     :post => (color="black", linestyle=:dashdot, linewidth=1),
     :inertia => (color="blue", linestyle=:dot, linewidth=1),
+    :smag => (color="green", linestyle=:dot, linewidth=1),
 )
 
 
