@@ -92,8 +92,8 @@ function plot_posteriori(
         marker = :circle,
         color = color, # dont change this color
     )
-    @warn "y length is $(length(y))"
-    if closure_name !== "INS_ref"
+    #if startswith(closure_name,"cnn_")
+    if closure_name !== "INS_ref" && length(y) > 1
         ax = _update_ax_limits(ax, collect(1:length(y)), y)
     end
 end
@@ -109,7 +109,7 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
 
     # add No closure only once
     label = "No closure (n = $nles)"
-    if _missing_label(ax, label)
+    if _missing_label(ax, label) && label in keys(divergencehistory)
         lines!(
             ax,
             divergencehistory.nomodel[data_index];
@@ -122,7 +122,7 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
 
     # add reference only once
     label = "Reference"
-    if _missing_label(ax, label)
+    if _missing_label(ax, label) && label in keys(divergencehistory)
         lines!(
             ax,
             divergencehistory.ref[data_index];
@@ -133,10 +133,22 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
         )
     end
 
+    label = "smag"
+    if _missing_label(ax, label) && label in keys(divergencehistory)
+        lines!(
+            ax,
+            divergencehistory.smag[data_index];
+            color = PLOT_STYLES[:smag].color,
+            linestyle = PLOT_STYLES[:smag].linestyle,
+            linewidth = PLOT_STYLES[:smag].linewidth,
+            label = label,
+        )
+    end
+
     label = Φ isa FaceAverage ? "FA" : "VA"
     lines!(
         ax,
-        divergencehistory.cnn_prior[data_index];
+        divergencehistory.model_prior[data_index];
         label = "$closure_name (prior) (n = $nles, $label)",
         linestyle = PLOT_STYLES[:prior].linestyle,
         linewidth = PLOT_STYLES[:prior].linewidth,
@@ -144,7 +156,7 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
     )
     lines!(
         ax,
-        divergencehistory.cnn_post[data_index];
+        divergencehistory.model_post[data_index];
         label = "$closure_name (post) (n = $nles, $label)",
         linestyle = PLOT_STYLES[:post].linestyle,
         linewidth = PLOT_STYLES[:post].linewidth,
@@ -179,7 +191,7 @@ function plot_energy_evolution(
 
     # add No closure only once
     label = "No closure (n = $nles)"
-    if _missing_label(ax, label)
+    if _missing_label(ax, label) && label in keys(energyhistory)
         lines!(
             ax,
             energyhistory.nomodel[data_index];
@@ -192,7 +204,7 @@ function plot_energy_evolution(
 
     # add reference only once
     label = "Reference"
-    if _missing_label(ax, label)
+    if _missing_label(ax, label) && label in keys(energyhistory)
         lines!(
             ax,
             energyhistory.ref[data_index];
@@ -203,10 +215,22 @@ function plot_energy_evolution(
         )
     end
 
+    label = "smag"
+    if _missing_label(ax, label) && label in keys(energyhistory)
+        lines!(
+            ax,
+            energyhistory.smag[data_index];
+            color = PLOT_STYLES[:smag].color,
+            linestyle = PLOT_STYLES[:smag].linestyle,
+            linewidth = PLOT_STYLES[:smag].linewidth,
+            label = label,
+        )
+    end
+
     label = Φ isa FaceAverage ? "FA" : "VA"
     lines!(
         ax,
-        energyhistory.cnn_prior[data_index];
+        energyhistory.model_prior[data_index];
         label = "$closure_name (prior) (n = $nles, $label)",
         linestyle = PLOT_STYLES[:prior].linestyle,
         linewidth = PLOT_STYLES[:prior].linewidth,
@@ -214,7 +238,7 @@ function plot_energy_evolution(
     )
     lines!(
         ax,
-        energyhistory.cnn_post[data_index];
+        energyhistory.model_post[data_index];
         label = "$closure_name (post) (n = $nles, $label)",
         linestyle = PLOT_STYLES[:post].linestyle,
         linewidth = PLOT_STYLES[:post].linewidth,
@@ -229,13 +253,22 @@ end
 
 function _get_spectra(setup, u)
     time_indices = eachindex(u)
-    field_names = [:ref, :nomodel, :cnn_prior, :cnn_post]
+    field_names = [:ref, :nomodel, :model_prior, :model_post]
     # Create a nested structure specs[itime][I]
+    @info "time_indices: $(time_indices)"
     specs = map(time_indices) do itime
         I_indices = eachindex(u[itime].ref)
         map(I_indices) do I
             map(field_names) do k
-                state = (; u = u[itime][k][I])
+                if sizeof(u[itime][k][I]) == 0
+                    @warn "No data for itime = $itime, I = $I, k = $k, so reusing itime=1. Need better data!"
+                    uki = zeros(ComplexF64)
+                    uki = u[1][k][I]
+                else
+                    uki = u[itime][k][I]
+                end
+                state = (; u = uki)
+                @info sizeof(state.u), itime, k, I
                 spec = observespectrum(state; setup)
                 spec.ehat[]
             end
@@ -273,6 +306,13 @@ function plot_energy_spectra(
         return
     end
     solutions = namedtupleload(energy_dir);
+    # exclude the solutions that have length 0
+    @info "----------"
+    @info sizeof(solutions.u)
+    @info "----------"
+    #filtered_u = filter(x -> sizeof(x) > 0, solutions.u)
+    #filtered_data = (u = filtered_u, t = solutions.t, itime_max_DIF = solutions.itime_max_DIF)
+    #solutions = filtered_data
 
     setup = getsetup(; params, nles)
     κ = IncompressibleNavierStokes.spectral_stuff(setup).κ
@@ -292,7 +332,7 @@ function plot_energy_spectra(
         ## Make plot
         subfig = fig[:, itime]
         title = "t = $(round(t; digits = 1))"
-        ax = Axis(subfig; xticks, title = title, xlabel = "κ")
+        ax = CairoMakie.Axis(subfig; xticks, title = title, xlabel = "κ")
 
         specs = all_specs[itime][data_index]
         # add No closure

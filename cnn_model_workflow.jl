@@ -616,7 +616,7 @@ end
 CUDA.allowscalar() do
 let
     s = length(params.nles), length(params.filters), length(projectorders)
-    keys = [:ref, :nomodel, :cnn_prior, :cnn_post]
+    keys = [:ref, :nomodel, :model_prior, :model_post]
     divergencehistory = (; map(k -> k => fill(Point2f[], s), keys)...)
     energyhistory = (; map(k -> k => fill(Point2f[], s), keys)...)
     for (iorder, projectorder) in enumerate(projectorders),
@@ -683,8 +683,8 @@ let
 
         for (sym, closure_model, θ) in [
             (:nomodel, nothing, nothing),
-            (:cnn_prior, wrappedclosure(closure_INS, setup), device(θ_cnn_prior[ig, ifil])),
-            (:cnn_post, wrappedclosure(closure_INS, setup), device(θ_cnn_post[I])),
+            (:model_prior, wrappedclosure(closure_INS, setup), device(θ_cnn_prior[ig, ifil])),
+            (:model_post, wrappedclosure(closure_INS, setup), device(θ_cnn_post[I])),
         ]
             _, results = solve_unsteady(;
                 setup = (; setup..., closure_model),
@@ -715,14 +715,14 @@ end
 # Check that energy is within reasonable bounds
 energyhistory.ref .|> extrema
 energyhistory.nomodel .|> extrema
-energyhistory.cnn_prior .|> extrema
-energyhistory.cnn_post .|> extrema
+energyhistory.model_prior .|> extrema
+energyhistory.model_post .|> extrema
 
 # Check that divergence is within reasonable bounds
 divergencehistory.ref .|> extrema
 divergencehistory.nomodel .|> extrema
-divergencehistory.cnn_prior .|> extrema
-divergencehistory.cnn_post .|> extrema
+divergencehistory.model_prior .|> extrema
+divergencehistory.model_post .|> extrema
 
 ########################################################################## #src
 
@@ -765,8 +765,8 @@ with_theme(; palette) do
             # ylims!(ax, (1.3, 2.3))
             plots = [
                 (energyhistory.nomodel, :solid, 1, "No closure"),
-                (energyhistory.cnn_prior, :solid, 3, "CNN (prior)"),
-                (energyhistory.cnn_post, :solid, 4, "CNN (post)"),
+                (energyhistory.model_prior, :solid, 3, "CNN (prior)"),
+                (energyhistory.model_post, :solid, 4, "CNN (post)"),
                 (energyhistory.ref, :dash, 1, "Reference"),
             ]
             for (p, linestyle, i, label) in plots
@@ -876,8 +876,8 @@ with_theme(; palette) do
                 yticklabelsvisible = iorder == 1,
             )
             lines!(ax, divergencehistory.nomodel[I]; label = "No closure")
-            lines!(ax, divergencehistory.cnn_prior[I]; label = "CNN (prior)")
-            lines!(ax, divergencehistory.cnn_post[I]; label = "CNN (post)")
+            lines!(ax, divergencehistory.model_prior[I]; label = "CNN (prior)")
+            lines!(ax, divergencehistory.model_post[I]; label = "CNN (post)")
             lines!(
                 ax,
                 divergencehistory.ref[I];
@@ -905,7 +905,7 @@ end
 let
     s = length(params.nles), length(params.filters), length(projectorders)
     temp = zeros(T, ntuple(Returns(0), params.D + 1))
-    keys = [:ref, :nomodel, :cnn_prior, :cnn_post]
+    keys = [:ref, :nomodel, :model_prior, :model_post]
     times = T[0.1, 0.5, 1.0, 5.0]
     itime_max_DIF = 3
     times_exact = copy(times)
@@ -958,15 +958,14 @@ let
             # Compute fields
             utimes[i].ref[I] = selectdim(sample.u, ndims(sample.u), it) |> collect
             utimes[i].nomodel[I] = solve(getprev(i, :nomodel), tlims, nothing, nothing)
-            #utimes[i].nomodel[I,:] = solve(getprev(i, :nomodel), tlims, nothing, nothing)
-            utimes[i].cnn_prior[I] = solve(
-                getprev(i, :cnn_prior),
+            utimes[i].model_prior[I] = solve(
+                getprev(i, :model_prior),
                 tlims,
                 wrappedclosure(closure_INS, setup),
                 device(θ_cnn_prior[igrid, ifil]),
             )
-            utimes[i].cnn_post[I] = solve(
-                getprev(i, :cnn_post),
+            utimes[i].model_post[I] = solve(
+                getprev(i, :model_post),
                 tlims,
                 wrappedclosure(closure_INS, setup),
                 device(θ_cnn_post[I]),
@@ -1007,7 +1006,7 @@ with_theme(; palette) do
 
                 fields = map(
                     k -> solutions.u[itime][k][igrid, ifil, iorder] |> device,
-                    [:ref, :nomodel, :cnn_prior, :cnn_post],
+                    [:ref, :nomodel, :model_prior, :model_post],
                 )
                 specs = map(fields) do u
                     state = (; u)
@@ -1211,8 +1210,8 @@ with_theme(; palette) do
 
             for (u, title) in [
                 (utime.nomodel[igrid, ifil, 2], "No closure"),
-                (utime.cnn_post[igrid, ifil, 1], "CNN (post, DIF)"),
-                (utime.cnn_post[igrid, ifil, 2], "CNN (post, DCF)"),
+                (utime.model_post[igrid, ifil, 1], "CNN (post, DIF)"),
+                (utime.model_post[igrid, ifil, 2], "CNN (post, DCF)"),
                 (utime.ref[igrid, ifil, 2], "Reference"),
             ]
                 icol += 1
