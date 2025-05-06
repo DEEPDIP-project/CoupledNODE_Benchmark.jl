@@ -24,7 +24,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "attcnn_4"
+  name: "attcnn_1"
   type: attentioncnn
   radii: [2, 2]
   channels: [24, 2]
@@ -47,10 +47,10 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 1
+  nepoch: 5
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
-  nunroll: 3
-  nunroll_valid: 5
+  nunroll: 2
+  nunroll_valid: 3
   dt: T(1e-4)
   do_plot: false
   plot_train: false

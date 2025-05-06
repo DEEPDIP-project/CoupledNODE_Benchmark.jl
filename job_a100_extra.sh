@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=Cnodes-cnn
+#SBATCH --job-name=Cnodes-extra
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=18
@@ -22,4 +22,4 @@ echo "Slurm array task ID: $SLURM_ARRAY_TASK_ID"
 
 export CONF_FILE=$1
 
-julia --project -t auto cnn_model_workflow.jl $CONF_FILE
+julia --project -t auto extra_model_workflow.jl $CONF_FILE

@@ -156,6 +156,7 @@ function trainprior(;
             device = device,
         )
 
+
         if nepochs_left <= 0
             @info "No epochs left to train."
             continue
@@ -293,6 +294,17 @@ function trainpost(;
             callbackstate, trainstate, epochs_trained =
                 CoupledNODE.load_checkpoint(checkfile)
             nepochs_left = nepoch - epochs_trained
+            # Put back the data to the correct device
+            if CUDA.functional()
+                callbackstate = (
+                    θmin = callbackstate.θmin,
+                    lhist_val = callbackstate.lhist_val,
+                    loss_min = callbackstate.loss_min,
+                    lhist_train = callbackstate.lhist_train,
+                    lhist_nomodel = callbackstate.lhist_nomodel,
+                )
+                trainstate = trainstate |> Lux.gpu_device()
+            end
         else
             callbackstate = trainstate = nothing
             nepochs_left = nepoch
@@ -341,4 +353,31 @@ function trainpost(;
         save_object(postfile, results)
     end
     @info "Finished a-posteriori training."
+end
+
+function compute_eprior(closure, θ, st, x, y)
+    y_pred, _ = Lux.apply(closure, x, θ, st)[1:2]
+    return norm(y_pred - y) / norm(y)
+end
+
+function compute_epost(rhs, ps, dt, tspan, (u, t), dev)
+    griddims = ((:) for _ = 1:(ndims(u)-2))
+    x = u[griddims..., :, 1] |> dev
+    y = u[griddims..., :, 2:end] |> dev # remember to discard sol at the initial time step
+    prob = ODEProblem(rhs, x, tspan, ps)
+    pred = dev(
+        solve(
+            prob,
+            Tsit5();
+            u0 = x,
+            p = ps,
+            adaptive = false,
+            saveat = Array(t),
+            dt = dt,
+            tspan = tspan,
+        ),
+    )
+    a = sum(y[griddims..., :, 1:(size(pred, 4)-1)] - pred[griddims..., :, 2:end])
+    b = sum(abs2, y[griddims..., :, 1:(size(pred, 4)-1)])
+    return mean(sqrt.(a) ./ sqrt.(b))
 end
