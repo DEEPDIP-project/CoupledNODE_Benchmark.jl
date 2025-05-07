@@ -9,9 +9,11 @@ function _update_ax_limits(ax, x, y)
     current_xmin, current_xmax = something(ax.limits[][1], (xmin, xmax))
     current_ymin, current_ymax = something(ax.limits[][2], (ymin, ymax))
 
-    # Update limits
-    xlims!(ax, extrema((xmin, xmax, current_xmin, current_xmax)))
-    ylims!(ax, extrema((ymin, ymax, current_ymin, current_ymax)))
+    # Add padding to the axis limits
+    new_xmin, new_xmax = extrema((xmin, xmax, current_xmin, current_xmax))
+    new_ymin, new_ymax = extrema((ymin, ymax, current_ymin, current_ymax))
+    xlims!(ax, new_xmin / 1.01, new_xmax * 1.01)
+    ylims!(ax, new_ymin / 1.01, new_ymax * 1.01)
 
     return ax
 end
@@ -25,7 +27,7 @@ function _missing_label(ax, label)
     return true
 end
 
-function plot_prior(outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES)
+function plot_prior_traininghistory(outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES)
     # Load learned parameters
     priortraining = loadprior(outdir, closure_name, [nles], [Φ])
 
@@ -44,6 +46,10 @@ function plot_prior(outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES)
     if closure_name == "INS_ref"
         y = [p[2] for p in priortraining[1].hist]
         x = [p[1] for p in priortraining[1].hist]
+        # if x starts from 0, shift it to 1
+        if x[1] == 0
+            x = x .+ 1
+        end
     else
         y = priortraining[1].lhist_val
         x = collect(1:length(y))
@@ -61,7 +67,7 @@ function plot_prior(outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES)
     ax = _update_ax_limits(ax, x, y)
 end
 
-function plot_posteriori(
+function plot_posteriori_traininghistory(
     outdir,
     closure_name,
     nles,
@@ -80,6 +86,10 @@ function plot_posteriori(
         (; hist) = check.callbackstate
         y = [p[2] for p in hist]
         x = [p[1] for p in hist]
+        # if x starts from 0, shift it to 1
+        if x[1] == 0
+            x = x .+ 1
+        end
     else
         posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
         y = posttraining[1].lhist_val
@@ -98,7 +108,6 @@ function plot_posteriori(
 
     # TODO: check if ticks are overwriting each other
     ax.xticks = 1:length(y)  # because y is "iteration", it should be integer
-
     ax = _update_ax_limits(ax, x, y)
 end
 

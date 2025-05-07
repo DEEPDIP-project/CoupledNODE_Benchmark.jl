@@ -78,13 +78,13 @@ colors_list = [
 
 # Loop over plot types and configurations
 plot_labels = Dict(
-    :prior_error => (
-        title  = "A-priori error for different configurations",
+    :prior_hist => (
+        title  = "A-priori training history for different configurations",
         xlabel = "Iteration",
         ylabel = "A-priori error",
     ),
-    :posteriori_error => (
-        title  = "A-posteriori error for different configurations",
+    :posteriori_hist => (
+        title  = "A-posteriori training history for different configurations",
         xlabel = "Iteration",
         ylabel = "DCF",
     ),
@@ -135,7 +135,7 @@ for key in keys(plot_labels)
     # Loop over the configurations
     for (i, conf_file) in enumerate(list_confs)
         @info "Reading configuration file $conf_file"
-        closure_name, params, conf = read_config(conf_file, backend)
+        closure_name, params, conf = read_config(outdir, conf_file, backend)
 
         # Loop over the parameters
         CUDA.allowscalar() do
@@ -168,14 +168,14 @@ for key in keys(plot_labels)
 
                 data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
 
-                if key == :prior_error
-                    plot_prior(
+                if key == :prior_hist
+                    plot_prior_traininghistory(
                         outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES
                     )
 
-                elseif key == :posteriori_error
+                elseif key == :posteriori_hist
                     projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-                    plot_posteriori(
+                    plot_posteriori_traininghistory(
                         outdir, closure_name, nles, Φ, projectorders, ax, color, PLOT_STYLES
                     )
 
