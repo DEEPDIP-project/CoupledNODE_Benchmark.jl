@@ -7,11 +7,6 @@ end
 @info "Script started"
 @info VERSION
 
-# Color palette for consistent theme throughout paper
-# Colors: Rich Red, Olive Green, Warm Orange, Deep Purple, Coral Pink, Teal
-# if you have more than 6 models, you can add more colors to the palette
-palette = (; color = ["#cc0000", "#669900", "#ff9900", "#9933cc", "#ff6666", "#66cccc"])
-
 # Identify the models that have been trained
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
@@ -68,10 +63,18 @@ PLOT_STYLES = Dict(
     :reference => (color="black", linestyle=:dot, linewidth=2),
     :prior => (color="black", linestyle=:solid, linewidth=1),
     :post => (color="black", linestyle=:dashdot, linewidth=1),
-    :inertia => (color="blue", linestyle=:dot, linewidth=1),
-    :smag => (color="green", linestyle=:dot, linewidth=1),
+    :inertia => (color="cyan", linestyle=:dot, linewidth=1),
+    :smag => (color="darkgreen", linestyle=:dot, linewidth=1),
 )
 
+# Color list: if there are more models, add more colors here
+# colors black, cyan and lightgreen are reserved, see above!
+# Bright Red-Orange, Sky Blue, Deep Purple, Hot Pink,
+# Bright Green, Dark Blue, Violet, Teal
+colors_list = [
+    "#ff3300", "#3399ff", "#9933cc", "#ff33cc",
+    "#33cc33", "#00008B", "#6600cc", "#00cc99"
+]
 
 # Loop over plot types and configurations
 plot_labels = Dict(
@@ -110,7 +113,6 @@ plot_labels = Dict(
     ),
 )
 
-set_theme!(palette = palette)
 
 for key in keys(plot_labels)
     @info "Plotting $key"
@@ -162,7 +164,7 @@ for key in keys(plot_labels)
                 col_index = _convert_to_single_index(
                     i, ig, ifil, length(params.nles), length(params.filters)
                 )
-                color = Cycled(col_index + 1)
+                color = colors_list[col_index]
 
                 data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
 
