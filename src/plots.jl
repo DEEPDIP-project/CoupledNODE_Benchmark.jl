@@ -318,11 +318,10 @@ function plot_energy_spectra(
     kmax = maximum(κ)
 
     # Create a grid of plots and legends
-    gtitle = fig[0, 0]  # Title of the figure
-    gplot = fig[1, 0]
-    gplot_ax = gplot[1, 1]  # Axis for each plot
-    gplot_leg1 = gplot[1, 2]  # Legend for each row
-    gplot_leg2 = gplot[1, 3]  # The common legend for all plots
+    gtitle = fig[1, 1]  # Title of the figure
+    gplot = fig[2, 1]
+    gplot_ax = gplot[1, 1]   # Axis for each plot
+    gplot_leg = gplot[1, 2]  # The common legend for all plots
 
     Label(
         gtitle,
@@ -411,12 +410,11 @@ function plot_energy_spectra(
         if itime == 1
             ax.ylabel = "$closure_name"
         end
-        hidedecorations!(ax, grid = false)
 
         # Add legend only for Prior and Post to each row
         if itime == length(solutions.t)
            Legend(
-                gplot_leg1[model_i, :],
+                gplot_ax[model_i, itime+1],
                 [prior_plt, post_plt],
                 [prior_label, post_label],
                 labelsize = 8
@@ -425,7 +423,7 @@ function plot_energy_spectra(
 
         # Add legend that is common for all plots
         Legend(
-            gplot_leg2,
+            gplot_leg,
             [no_closure_plt, reference_plt, inertia_plt],
             [no_closure_label, reference_label, inertia_label],
             labelsize = 8
