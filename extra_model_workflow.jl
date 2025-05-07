@@ -450,8 +450,8 @@ end
 let
     eprior = (;
         nomodel = ones(T, length(params.nles)),
-        prior = zeros(T, size(θ_cnn_prior)),
-        post = zeros(T, size(θ_cnn_post)),
+        model_prior = zeros(T, size(θ_cnn_prior)),
+        model_post = zeros(T, size(θ_cnn_post)),
     )
     for (ifil, Φ) in enumerate(params.filters), (ig, nles) in enumerate(params.nles)
         @info "Computing a-priori errors" Φ nles
@@ -462,9 +462,9 @@ let
         i = 1:min(100, size(testset.u, 4))
         u, c = testset.u[:, :, :, i], testset.c[:, :, :, i]
         testset = (u, c) |> device
-        eprior.prior[ig, ifil] = compute_eprior(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)
+        eprior.model_prior[ig, ifil] = compute_eprior(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)
         for iorder in eachindex(projectorders)
-            eprior.post[ig, ifil, iorder] = compute_eprior(closure, device(θ_cnn_post[ig, ifil, iorder]), st, testset...)
+            eprior.model_post[ig, ifil, iorder] = compute_eprior(closure, device(θ_cnn_post[ig, ifil, iorder]), st, testset...)
         end
     end
     jldsave(joinpath(outdir_model, "eprior.jld2"); eprior...)
@@ -488,8 +488,8 @@ let
     s = (length(params.nles), length(params.filters), length(projectorders))
     epost = (;
         nomodel = zeros(T, s),
-        cnn_prior = zeros(T, s),
-        cnn_post = zeros(T, s),
+        model_prior = zeros(T, s),
+        model_post = zeros(T, s),
     )
     for (iorder, projectorder) in enumerate(projectorders),
         (ifil, Φ) in enumerate(params.filters),
@@ -515,8 +515,8 @@ let
         # with closure
         dudt = NS.create_right_hand_side_with_closure(
             setup, psolver, closure, st)
-        epost.cnn_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
-        epost.cnn_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data, device)
+        epost.model_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
+        epost.model_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data, device)
         clean()
     end
     jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
@@ -551,8 +551,8 @@ with_theme(; palette) do
         )
         for (e, marker, label, color) in [
             (eprior.nomodel, :circle, "No closure", Cycled(1)),
-            (eprior.prior[:, ifil], :utriangle, "CNN (prior)", Cycled(2)),
-            (eprior.post[:, ifil, 1], :diamond, "CNN (post, DCF)", Cycled(3)),
+            (eprior.model_prior[:, ifil], :utriangle, "Model (prior)", Cycled(2)),
+            (eprior.model_post[:, ifil, 1], :diamond, "Model (post, DCF)", Cycled(3)),
         ]
             scatterlines!(params.nles, e; marker, color, label)
         end
@@ -594,8 +594,8 @@ with_theme(; palette) do
         )
         for (e, marker, label, color) in [
             (epost.nomodel, :circle, "No closure", Cycled(1)),
-            (epost.cnn_prior, :rect, "CNN (Lprior)", Cycled(3)),
-            (epost.cnn_post, :diamond, "CNN (Lpost)", Cycled(4)),
+            (epost.model_prior, :rect, "Model (Lprior)", Cycled(3)),
+            (epost.model_post, :diamond, "Model (Lpost)", Cycled(4)),
         ]
             for (ifil, linestyle) in enumerate(linestyles)
                 ifil == 2 && (label = nothing)
