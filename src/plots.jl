@@ -2,16 +2,18 @@
 function _update_ax_limits(ax, x, y)
     # Get data limits with extra padding for the legend
     (xmin, xmax), (ymin, ymax) = extrema(x), extrema(y)
-    xmax += (xmax - xmin) * 0.5
-    ymax += (ymax - ymin) * 0.5
+    xmax += (xmax - xmin) * 0.5 + max(1e-6, abs(xmax) * 1e-6)
+    ymax += (ymax - ymin) * 0.5 + max(1e-6, abs(ymax) * 1e-6)
 
     # Get current axis limits
     current_xmin, current_xmax = something(ax.limits[][1], (xmin, xmax))
     current_ymin, current_ymax = something(ax.limits[][2], (ymin, ymax))
 
-    # Update limits
-    xlims!(ax, extrema((xmin, xmax, current_xmin, current_xmax)))
-    ylims!(ax, extrema((ymin, ymax, current_ymin, current_ymax)))
+    # Add padding to the axis limits
+    new_xmin, new_xmax = extrema((xmin, xmax, current_xmin, current_xmax))
+    new_ymin, new_ymax = extrema((ymin, ymax, current_ymin, current_ymax))
+    xlims!(ax, new_xmin / 1.01, new_xmax * 1.01)
+    ylims!(ax, new_ymin / 1.01, new_ymax * 1.01)
 
     return ax
 end
@@ -25,9 +27,10 @@ function _missing_label(ax, label)
     return true
 end
 
-function plot_prior(outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES)
+function plot_prior_traininghistory(outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES)
     # Load learned parameters
     priortraining = loadprior(outdir, closure_name, [nles], [Φ])
+
     label = "No closure (n = $nles)"
     if _missing_label(ax, label)  # add No closure only once
         lines!(
@@ -41,25 +44,30 @@ function plot_prior(outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES)
     end
     label = Φ isa FaceAverage ? "FA" : "VA"
     if closure_name == "INS_ref"
-        y = priortraining[1].hist
+        y = [p[2] for p in priortraining[1].hist]
+        x = [p[1] for p in priortraining[1].hist]
+        # if x starts from 0, shift it to 1
+        if x[1] == 0
+            x = x .+ 1
+        end
     else
         y = priortraining[1].lhist_val
+        x = collect(1:length(y))
     end
 
     lines!(
         ax,
+        x,
         y;
         label = "$closure_name (n = $nles, $label)",
         color = color, # dont change this color
         linestyle = PLOT_STYLES[:prior].linestyle,
         linewidth = PLOT_STYLES[:prior].linewidth,
     )
-    if closure_name !== "INS_ref"
-        ax = _update_ax_limits(ax, collect(1:length(y)), y)
-    end
+    ax = _update_ax_limits(ax, x, y)
 end
 
-function plot_posteriori(
+function plot_posteriori_traininghistory(
     outdir,
     closure_name,
     nles,
@@ -76,15 +84,20 @@ function plot_posteriori(
         checkfile = join(splitext(postfile), "_checkpoint")
         check = namedtupleload(checkfile)
         (; hist) = check.callbackstate
-        y = hist
+        y = [p[2] for p in hist]
+        x = [p[1] for p in hist]
+        # if x starts from 0, shift it to 1
+        if x[1] == 0
+            x = x .+ 1
+        end
     else
         posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
-        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
         y = posttraining[1].lhist_val
+        x = collect(1:length(y))
     end
-    ax.xticks = 1:length(y)  # because y is "iteration", it should be integer
     scatterlines!(
         ax,
+        x,
         y;
         label = "$closure_name (n = $nles, $label)",
         linestyle = PLOT_STYLES[:post].linestyle,  # should not interpolate between points
@@ -92,10 +105,10 @@ function plot_posteriori(
         marker = :circle,
         color = color, # dont change this color
     )
-    #if startswith(closure_name,"cnn_")
-    if closure_name !== "INS_ref" && length(y) > 1
-        ax = _update_ax_limits(ax, collect(1:length(y)), y)
-    end
+
+    # TODO: check if ticks are overwriting each other
+    ax.xticks = 1:length(y)  # because y is "iteration", it should be integer
+    ax = _update_ax_limits(ax, x, y)
 end
 
 function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES)
@@ -255,7 +268,6 @@ function _get_spectra(setup, u)
     time_indices = eachindex(u)
     field_names = [:ref, :nomodel, :model_prior, :model_post]
     # Create a nested structure specs[itime][I]
-    @info "time_indices: $(time_indices)"
     specs = map(time_indices) do itime
         I_indices = eachindex(u[itime].ref)
         map(I_indices) do I
@@ -268,7 +280,6 @@ function _get_spectra(setup, u)
                     uki = u[itime][k][I]
                 end
                 state = (; u = uki)
-                @info sizeof(state.u), itime, k, I
                 spec = observespectrum(state; setup)
                 spec.ehat[]
             end
@@ -296,6 +307,8 @@ function plot_energy_spectra(
     Φ,
     data_index,
     fig,
+    model_i,
+    num_of_models,
     color,
     PLOT_STYLES,
 )
@@ -306,19 +319,25 @@ function plot_energy_spectra(
         return
     end
     solutions = namedtupleload(energy_dir);
-    # exclude the solutions that have length 0
-    @info "----------"
-    @info sizeof(solutions.u)
-    @info "----------"
-    #filtered_u = filter(x -> sizeof(x) > 0, solutions.u)
-    #filtered_data = (u = filtered_u, t = solutions.t, itime_max_DIF = solutions.itime_max_DIF)
-    #solutions = filtered_data
 
     setup = getsetup(; params, nles)
     κ = IncompressibleNavierStokes.spectral_stuff(setup).κ
     all_specs = _get_spectra(setup, solutions.u)
 
     kmax = maximum(κ)
+
+    # Create a grid of plots and legends
+    gtitle = fig[1, 1]  # Title of the figure
+    gplot = fig[2, 1]
+    gplot_ax = gplot[1, 1]   # Axis for each plot
+    gplot_leg = gplot[1, 2]  # The common legend for all plots
+
+    Label(
+        gtitle,
+        "Energy spectra for different configurations";
+        font = :bold,
+        tellwidth=false,
+    )
 
     for (itime, t) in enumerate(solutions.t)
         ## Nice ticks
@@ -330,74 +349,137 @@ function plot_energy_spectra(
         end
 
         ## Make plot
-        subfig = fig[:, itime]
-        title = "t = $(round(t; digits = 1))"
-        ax = CairoMakie.Axis(subfig; xticks, title = title, xlabel = "κ")
+        t_title = model_i == 1 ? "t = $(round(t; digits = 1))" : ""
+        k_xlable = model_i == num_of_models ? "κ" : ""
+        ax = CairoMakie.Axis(gplot_ax[model_i, itime]; xticks, title = t_title, xlabel = k_xlable)
 
         specs = all_specs[itime][data_index]
+
         # add No closure
-        lines!(
+        no_closure_label = "No closure (n = $nles)"
+        no_closure_plt = lines!(
             ax,
             κ,
             specs[2];
-            label = "No closure (n = $nles)",
+            label = no_closure_label,
             linestyle = PLOT_STYLES[:no_closure].linestyle,
             linewidth = PLOT_STYLES[:no_closure].linewidth,
             color = PLOT_STYLES[:no_closure].color,
         )
 
         # add reference
-        lines!(
+        reference_label = "Reference"
+        reference_plt = lines!(
             ax,
             κ,
             specs[1];
             color = PLOT_STYLES[:reference].color,
             linestyle = PLOT_STYLES[:reference].linestyle,
             linewidth = PLOT_STYLES[:reference].linewidth,
-            label = "Reference",
+            label = reference_label,
         )
 
         label = Φ isa FaceAverage ? "FA" : "VA"
-        lines!(
+        prior_label = "Prior (n = $nles, $label)"
+        prior_plt = lines!(
             ax,
             κ,
             specs[3];
-            label = "$closure_name (prior) (n = $nles, $label)",
+            label = prior_label,
             linestyle = PLOT_STYLES[:prior].linestyle,
             linewidth = PLOT_STYLES[:prior].linewidth,
             color = color, # dont change this color
         )
-        lines!(
+        post_label = "Post (n = $nles, $label)"
+        post_plt = lines!(
             ax,
             κ,
             specs[4];
-            label = "$closure_name (post) (n = $nles, $label)",
+            label = post_label,
             linestyle = PLOT_STYLES[:post].linestyle,
             linewidth = PLOT_STYLES[:post].linewidth,
             color = color, # dont change this color
         )
-        krange, inertia, slopelabel = _build_inertia_slope(kmax, specs[1], κ)
-        lines!(
+        krange, inertia, inertia_label = _build_inertia_slope(kmax, specs[1], κ)
+        inertia_plt = lines!(
             ax,
             krange,
             inertia;
             color = PLOT_STYLES[:inertia].color,
-            label = slopelabel,
+            label = inertia_label,
             linestyle = PLOT_STYLES[:inertia].linestyle,
             linewidth = PLOT_STYLES[:inertia].linewidth,
         )
         ax.yscale = log10
         ax.xscale = log2
 
+        ax.xticklabelsize = 8
+        ax.yticklabelsize = 8
+
         if itime == 1
-            ax.ylabel = "DCF"
+            ax.ylabel = "$closure_name"
         end
+
+        # Add legend only for Prior and Post to each row
         if itime == length(solutions.t)
-            fig[:, itime+1] = Legend(fig, ax)
+           Legend(
+                gplot_ax[model_i, itime+1],
+                [prior_plt, post_plt],
+                [prior_label, post_label],
+                labelsize = 8
+            )
         end
+
+        # Add legend that is common for all plots
+        Legend(
+            gplot_leg,
+            [no_closure_plt, reference_plt, inertia_plt],
+            [no_closure_label, reference_label, inertia_label],
+            labelsize = 8
+        )
     end
 end
 
 function _convert_to_single_index(i, j, k, dimj, dimk)
     return (i - 1) * dimj * dimk + (j - 1) * dimk + k
+end
+
+function plot_prior_time(outdir, closure_name, nles, Φ, model_index, ax, color)
+    # Load learned parameters
+    priortraining = loadprior(outdir, closure_name, [nles], [Φ])
+
+    # training time in seconds
+    training_time = map(p -> p.comptime, priortraining) |> vec .|> x -> round(x; digits = 3)
+
+    label = Φ isa FaceAverage ? "FA" : "VA"
+    barplot!(
+        ax,
+        [model_index],
+        training_time;
+        label = "$closure_name (n = $nles, $label)",
+        color = color, # dont change this color
+    )
+
+end
+
+function plot_posteriori_time(outdir, closure_name, nles, Φ, projectorders, model_index, ax, color)
+
+    if closure_name == "INS_ref"
+        postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1])
+        posttraining = namedtupleload(postfile)
+        training_time = [round(posttraining.single_stored_object.comptime; digits = 3)]
+    else
+        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
+        training_time = map(p -> p.comptime, posttraining) |> vec .|> x -> round(x; digits = 3)
+    end
+
+    label = Φ isa FaceAverage ? "FA" : "VA"
+    barplot!(
+        ax,
+        [model_index],
+        training_time;
+        label = "$closure_name (n = $nles, $label)",
+        color = color, # dont change this color
+    )
+
 end

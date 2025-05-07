@@ -7,9 +7,6 @@ end
 @info "Script started"
 @info VERSION
 
-# Color palette for consistent theme throughout paper
-palette = (; color = ["#3366cc", "#cc0000", "#669900", "#ff9900"])
-
 # Identify the models that have been trained
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
@@ -66,21 +63,28 @@ PLOT_STYLES = Dict(
     :reference => (color="black", linestyle=:dot, linewidth=2),
     :prior => (color="black", linestyle=:solid, linewidth=1),
     :post => (color="black", linestyle=:dashdot, linewidth=1),
-    :inertia => (color="blue", linestyle=:dot, linewidth=1),
-    :smag => (color="green", linestyle=:dot, linewidth=1),
+    :inertia => (color="cyan", linestyle=:dot, linewidth=1),
+    :smag => (color="darkgreen", linestyle=:dot, linewidth=1),
 )
 
-
+# Color list: if there are more models, add more colors here
+# colors black, cyan and lightgreen are reserved, see above!
+# Bright Red-Orange, Sky Blue, Deep Purple, Hot Pink,
+# Bright Green, Dark Blue, Violet, Teal
+colors_list = [
+    "#ff3300", "#3399ff", "#9933cc", "#ff33cc",
+    "#33cc33", "#00008B", "#6600cc", "#00cc99"
+]
 
 # Loop over plot types and configurations
 plot_labels = Dict(
-    :prior_error => (
-        title  = "A-priori error for different configurations",
+    :prior_hist => (
+        title  = "A-priori training history for different configurations",
         xlabel = "Iteration",
         ylabel = "A-priori error",
     ),
-    :posteriori_error => (
-        title  = "A-posteriori error for different configurations",
+    :posteriori_hist => (
+        title  = "A-posteriori training history for different configurations",
         xlabel = "Iteration",
         ylabel = "DCF",
     ),
@@ -97,9 +101,18 @@ plot_labels = Dict(
     :energy_spectra => (
         title  = "Energy spectra",
     ),
+    :prior_time => (
+        title  = "A-priori time for different configurations",
+        xlabel = "Model",
+        ylabel = "Training time (s)",
+    ),
+    :posteriori_time => (
+        title  = "A-posteriori time for different configurations",
+        xlabel = "Model",
+        ylabel = "Training time (s)",
+    ),
 )
 
-set_theme!(palette = palette)
 
 for key in keys(plot_labels)
     @info "Plotting $key"
@@ -115,81 +128,99 @@ for key in keys(plot_labels)
         )
     end
 
+    # empty list for barplots
+    bar_positions = Int[]
+    bar_labels = String[]
+
     # Loop over the configurations
     for (i, conf_file) in enumerate(list_confs)
         @info "Reading configuration file $conf_file"
-        closure_name, params, conf = read_config(conf_file, backend)
+        closure_name, params, conf = read_config(outdir, conf_file, backend)
 
         # Loop over the parameters
         CUDA.allowscalar() do
-        for (ig, nles) in enumerate(params.nles),
-            (ifil, Φ) in enumerate(params.filters)
+            for (ig, nles) in enumerate(params.nles),
+                (ifil, Φ) in enumerate(params.filters)
 
-            projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-            if length(projectorders) > 1
-                @warn "Multiple project orders found in configuration $conf_file. Do not know how to handle this yet."
-                continue
-            end
-
-            if !check_necessary_files(
-                outdir,
-                closure_name,
-                nles,
-                Φ,
-                projectorders[1],
-            )
-                @error "Some files are missing for configuration $conf_file. Skipping"
-                continue
-            end
-
-            # make sure each combination has a consistent color
-            #TODO this function should be tested
-            col_index = _convert_to_single_index(
-                i, ig, ifil, length(params.nles), length(params.filters)
-            )
-            color = Cycled(col_index + 1)
-
-            data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
-
-            if key == :prior_error
-                plot_prior(
-                    outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES
-                )
-
-            elseif key == :posteriori_error
                 projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-                plot_posteriori(
-                    outdir, closure_name, nles, Φ, projectorders, ax, color, PLOT_STYLES
-                )
+                if length(projectorders) > 1
+                    @warn "Multiple project orders found in configuration $conf_file. Do not know how to handle this yet."
+                    continue
+                end
 
-            elseif key == :divergence
+                if !check_necessary_files(
+                    outdir,
+                    closure_name,
+                    nles,
+                    Φ,
+                    projectorders[1],
+                )
+                    @error "Some files are missing for configuration $conf_file. Skipping"
+                    continue
+                end
 
-                plot_divergence(
-                    outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
+                # make sure each combination has a consistent color
+                #TODO this function should be tested
+                col_index = _convert_to_single_index(
+                    i, ig, ifil, length(params.nles), length(params.filters)
                 )
+                color = colors_list[col_index]
 
-            elseif key == :energy_evolution
-                plot_energy_evolution(
-                    outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
-                )
+                data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
 
-            elseif key== :energy_spectra
-                Label(
-                    fig[0, :],
-                    "Energy spectra for different configurations";
-                    font = :bold,
-                    tellwidth=false,
-                )
-                plot_energy_spectra(
-                    outdir, params, closure_name, nles, Φ, data_index, fig[i, :], color, PLOT_STYLES
-                )
+                if key == :prior_hist
+                    plot_prior_traininghistory(
+                        outdir, closure_name, nles, Φ, ax, color, PLOT_STYLES
+                    )
+
+                elseif key == :posteriori_hist
+                    projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+                    plot_posteriori_traininghistory(
+                        outdir, closure_name, nles, Φ, projectorders, ax, color, PLOT_STYLES
+                    )
+
+                elseif key == :divergence
+                    plot_divergence(
+                        outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
+                    )
+
+                elseif key == :energy_evolution
+                    plot_energy_evolution(
+                        outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
+                    )
+
+                elseif key== :energy_spectra
+                   num_of_models = length(list_confs)
+                   plot_energy_spectra(
+                        outdir, params, closure_name, nles, Φ, data_index, fig, i,
+                        num_of_models, color, PLOT_STYLES
+                    )
+
+                elseif key == :prior_time
+                    plot_prior_time(
+                        outdir, closure_name, nles, Φ, col_index, ax, color
+                    )
+                    push!(bar_positions, col_index)
+                    push!(bar_labels, "$closure_name")
+                elseif key == :posteriori_time
+                    projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+                    plot_posteriori_time(
+                        outdir, closure_name, nles, Φ, projectorders, col_index, ax, color
+                    )
+                    push!(bar_positions, col_index)
+                    push!(bar_labels, "$closure_name")
+                end
             end
-        end
         end
     end
     # Add legend
     if key != :energy_spectra
         axislegend(ax, position = :rt)
+    end
+
+    # Add xticks in barplot
+    if key == :prior_time || key == :posteriori_time
+        ax.xticks = (bar_positions, bar_labels)
     end
 
     # Display and save the figure

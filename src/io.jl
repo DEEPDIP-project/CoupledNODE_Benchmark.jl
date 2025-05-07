@@ -1,9 +1,9 @@
 
 # Define some functions
-function read_config(config_file, backend)
+function read_config(outdir, config_file, backend)
     conf = NS.read_config(config_file)
     closure_name = conf["closure"]["name"]
-    model_path = joinpath("output", "kolmogorov", closure_name)
+    model_path = joinpath(outdir, closure_name)
 
     # Check if the model exists
     msg = """
