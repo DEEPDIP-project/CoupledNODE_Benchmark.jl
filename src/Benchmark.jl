@@ -99,7 +99,9 @@ export trainsmagorinsky, loadsmagorinsky
 
 export read_config, check_necessary_files
 export _convert_to_single_index,
-    plot_prior, plot_posteriori, plot_divergence, plot_energy_evolution, plot_energy_spectra
+    plot_prior_traininghistory, plot_posteriori_traininghistory,
+    plot_divergence, plot_energy_evolution, plot_energy_spectra,
+    plot_prior_time, plot_posteriori_time
 
 export compute_eprior, compute_epost
 
