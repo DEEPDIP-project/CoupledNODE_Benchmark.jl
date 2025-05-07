@@ -188,14 +188,10 @@ for key in keys(plot_labels)
                     )
 
                 elseif key== :energy_spectra
-                    Label(
-                        fig[0, :],
-                        "Energy spectra for different configurations";
-                        font = :bold,
-                        tellwidth=false,
-                    )
-                    plot_energy_spectra(
-                        outdir, params, closure_name, nles, Φ, data_index, fig[i, :], color, PLOT_STYLES
+                   num_of_models = length(list_confs)
+                   plot_energy_spectra(
+                        outdir, params, closure_name, nles, Φ, data_index, fig, i,
+                        num_of_models, color, PLOT_STYLES
                     )
 
                 elseif key == :prior_time

@@ -259,7 +259,6 @@ function _get_spectra(setup, u)
     time_indices = eachindex(u)
     field_names = [:ref, :nomodel, :model_prior, :model_post]
     # Create a nested structure specs[itime][I]
-    @info "time_indices: $(time_indices)"
     specs = map(time_indices) do itime
         I_indices = eachindex(u[itime].ref)
         map(I_indices) do I
@@ -272,7 +271,6 @@ function _get_spectra(setup, u)
                     uki = u[itime][k][I]
                 end
                 state = (; u = uki)
-                @info sizeof(state.u), itime, k, I
                 spec = observespectrum(state; setup)
                 spec.ehat[]
             end
@@ -300,6 +298,8 @@ function plot_energy_spectra(
     Φ,
     data_index,
     fig,
+    model_i,
+    num_of_models,
     color,
     PLOT_STYLES,
 )
@@ -310,19 +310,26 @@ function plot_energy_spectra(
         return
     end
     solutions = namedtupleload(energy_dir);
-    # exclude the solutions that have length 0
-    @info "----------"
-    @info sizeof(solutions.u)
-    @info "----------"
-    #filtered_u = filter(x -> sizeof(x) > 0, solutions.u)
-    #filtered_data = (u = filtered_u, t = solutions.t, itime_max_DIF = solutions.itime_max_DIF)
-    #solutions = filtered_data
 
     setup = getsetup(; params, nles)
     κ = IncompressibleNavierStokes.spectral_stuff(setup).κ
     all_specs = _get_spectra(setup, solutions.u)
 
     kmax = maximum(κ)
+
+    # Create a grid of plots and legends
+    gtitle = fig[0, 0]  # Title of the figure
+    gplot = fig[1, 0]
+    gplot_ax = gplot[1, 1]  # Axis for each plot
+    gplot_leg1 = gplot[1, 2]  # Legend for each row
+    gplot_leg2 = gplot[1, 3]  # The common legend for all plots
+
+    Label(
+        gtitle,
+        "Energy spectra for different configurations";
+        font = :bold,
+        tellwidth=false,
+    )
 
     for (itime, t) in enumerate(solutions.t)
         ## Nice ticks
@@ -334,71 +341,95 @@ function plot_energy_spectra(
         end
 
         ## Make plot
-        subfig = fig[:, itime]
-        title = "t = $(round(t; digits = 1))"
-        ax = CairoMakie.Axis(subfig; xticks, title = title, xlabel = "κ")
+        t_title = model_i == 1 ? "t = $(round(t; digits = 1))" : ""
+        k_xlable = model_i == num_of_models ? "κ" : ""
+        ax = CairoMakie.Axis(gplot_ax[model_i, itime]; xticks, title = t_title, xlabel = k_xlable)
 
         specs = all_specs[itime][data_index]
+
         # add No closure
-        lines!(
+        no_closure_label = "No closure (n = $nles)"
+        no_closure_plt = lines!(
             ax,
             κ,
             specs[2];
-            label = "No closure (n = $nles)",
+            label = no_closure_label,
             linestyle = PLOT_STYLES[:no_closure].linestyle,
             linewidth = PLOT_STYLES[:no_closure].linewidth,
             color = PLOT_STYLES[:no_closure].color,
         )
 
         # add reference
-        lines!(
+        reference_label = "Reference"
+        reference_plt = lines!(
             ax,
             κ,
             specs[1];
             color = PLOT_STYLES[:reference].color,
             linestyle = PLOT_STYLES[:reference].linestyle,
             linewidth = PLOT_STYLES[:reference].linewidth,
-            label = "Reference",
+            label = reference_label,
         )
 
         label = Φ isa FaceAverage ? "FA" : "VA"
-        lines!(
+        prior_label = "Prior (n = $nles, $label)"
+        prior_plt = lines!(
             ax,
             κ,
             specs[3];
-            label = "$closure_name (prior) (n = $nles, $label)",
+            label = prior_label,
             linestyle = PLOT_STYLES[:prior].linestyle,
             linewidth = PLOT_STYLES[:prior].linewidth,
             color = color, # dont change this color
         )
-        lines!(
+        post_label = "Post (n = $nles, $label)"
+        post_plt = lines!(
             ax,
             κ,
             specs[4];
-            label = "$closure_name (post) (n = $nles, $label)",
+            label = post_label,
             linestyle = PLOT_STYLES[:post].linestyle,
             linewidth = PLOT_STYLES[:post].linewidth,
             color = color, # dont change this color
         )
-        krange, inertia, slopelabel = _build_inertia_slope(kmax, specs[1], κ)
-        lines!(
+        krange, inertia, inertia_label = _build_inertia_slope(kmax, specs[1], κ)
+        inertia_plt = lines!(
             ax,
             krange,
             inertia;
             color = PLOT_STYLES[:inertia].color,
-            label = slopelabel,
+            label = inertia_label,
             linestyle = PLOT_STYLES[:inertia].linestyle,
             linewidth = PLOT_STYLES[:inertia].linewidth,
         )
         ax.yscale = log10
         ax.xscale = log2
 
+        ax.xticklabelsize = 8
+        ax.yticklabelsize = 8
+
         if itime == 1
-            ax.ylabel = "DCF"
+            ax.ylabel = "$closure_name"
         end
+        hidedecorations!(ax, grid = false)
+
+        # Add legend only for Prior and Post to each row
         if itime == length(solutions.t)
-            fig[:, itime+1] = Legend(fig, ax)
+           Legend(
+                gplot_leg1[model_i, :],
+                [prior_plt, post_plt],
+                [prior_label, post_label],
+                labelsize = 8
+            )
         end
+
+        # Add legend that is common for all plots
+        Legend(
+            gplot_leg2,
+            [no_closure_plt, reference_plt, inertia_plt],
+            [no_closure_label, reference_label, inertia_label],
+            labelsize = 8
+        )
     end
 end
 
