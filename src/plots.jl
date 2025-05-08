@@ -1,5 +1,8 @@
 
 function _update_ax_limits(ax, x, y)
+    if any(isnan, y)
+        return ax
+    end
     # Get data limits with extra padding for the legend
     (xmin, xmax), (ymin, ymax) = extrema(x), extrema(y)
     xmax += (xmax - xmin) * 0.5 + max(1e-6, abs(xmax) * 1e-6)
@@ -336,7 +339,7 @@ function plot_energy_spectra(
         gtitle,
         "Energy spectra for different configurations";
         font = :bold,
-        tellwidth=false,
+        tellwidth = false,
     )
 
     for (itime, t) in enumerate(solutions.t)
@@ -351,7 +354,12 @@ function plot_energy_spectra(
         ## Make plot
         t_title = model_i == 1 ? "t = $(round(t; digits = 1))" : ""
         k_xlable = model_i == num_of_models ? "κ" : ""
-        ax = CairoMakie.Axis(gplot_ax[model_i, itime]; xticks, title = t_title, xlabel = k_xlable)
+        ax = CairoMakie.Axis(
+            gplot_ax[model_i, itime];
+            xticks,
+            title = t_title,
+            xlabel = k_xlable,
+        )
 
         specs = all_specs[itime][data_index]
 
@@ -422,11 +430,11 @@ function plot_energy_spectra(
 
         # Add legend only for Prior and Post to each row
         if itime == length(solutions.t)
-           Legend(
+            Legend(
                 gplot_ax[model_i, itime+1],
                 [prior_plt, post_plt],
                 [prior_label, post_label],
-                labelsize = 8
+                labelsize = 8,
             )
         end
 
@@ -435,7 +443,7 @@ function plot_energy_spectra(
             gplot_leg,
             [no_closure_plt, reference_plt, inertia_plt],
             [no_closure_label, reference_label, inertia_label],
-            labelsize = 8
+            labelsize = 8,
         )
     end
 end
@@ -462,7 +470,16 @@ function plot_prior_time(outdir, closure_name, nles, Φ, model_index, ax, color)
 
 end
 
-function plot_posteriori_time(outdir, closure_name, nles, Φ, projectorders, model_index, ax, color)
+function plot_posteriori_time(
+    outdir,
+    closure_name,
+    nles,
+    Φ,
+    projectorders,
+    model_index,
+    ax,
+    color,
+)
 
     if closure_name == "INS_ref"
         postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1])
@@ -470,7 +487,8 @@ function plot_posteriori_time(outdir, closure_name, nles, Φ, projectorders, mod
         training_time = [round(posttraining.single_stored_object.comptime; digits = 3)]
     else
         posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
-        training_time = map(p -> p.comptime, posttraining) |> vec .|> x -> round(x; digits = 3)
+        training_time =
+            map(p -> p.comptime, posttraining) |> vec .|> x -> round(x; digits = 3)
     end
 
     label = Φ isa FaceAverage ? "FA" : "VA"

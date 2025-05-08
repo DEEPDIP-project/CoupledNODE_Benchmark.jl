@@ -28,7 +28,7 @@ closure:
   type: attentioncnn
   radii: [2, 2]
   channels: [24, 2]
-  activations: ["tanh", "identity"]
+  activations: ["relu", "identity"]
   use_bias: [true, false]
   use_attention: [true, false]
   emb_sizes: [124, 124]
@@ -49,8 +49,8 @@ posteriori:
   projectorders: "(ProjectOrder.Last, )"
   nepoch: 10
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
-  nunroll: 5
-  nunroll_valid: 5
-  dt: T(1e-5)
+  nunroll: 2
+  nunroll_valid: 3
+  dt: T(1e-4)
   do_plot: false
   plot_train: false

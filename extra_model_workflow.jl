@@ -234,13 +234,13 @@ CNO = Base.get_extension(CoupledNODE, :CNO)
 
 closure, θ_start, st = NS.load_model(conf)
 
-@info "Initialized CNN with $(length(θ_start)) parameters"
+@info "Initialized model with $(length(θ_start)) parameters"
 
 # Give the CNN a test run
 # Note: Data and parameters are stored on the CPU, and
 # must be moved to the GPU before use (with `device`)
 let
-    @info "CNN warm up run"
+    @info "Model warm up run"
     using NeuralClosure.Zygote
     u = randn(T, params.nles[1], params.nles[1], 2, 10) |> device
     θ = θ_start |> device
