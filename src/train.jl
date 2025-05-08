@@ -183,6 +183,7 @@ function trainprior(;
             comptime = time() - starttime,
             callbackstate.lhist_val,
             callbackstate.lhist_nomodel,
+            time_per_epoch = (time() - starttime) / nepochs_left,
         )
         save_object(priorfile, results)
     end
@@ -349,6 +350,7 @@ function trainpost(;
             θ = Array(θ),
             comptime = time() - starttime,
             lhist_val = callbackstate.lhist_val,
+            time_per_epoch = (time() - starttime) / nepochs_left,
         )
         save_object(postfile, results)
     end
@@ -360,11 +362,28 @@ function compute_eprior(closure, θ, st, x, y)
     return norm(y_pred - y) / norm(y)
 end
 
+function compute_t_prior_inference(closure, θ, st, x, y, nreps = 1000)
+    size_in = size(x)
+    T = eltype(x)
+    _, t, _, _ = @timed begin
+        for _ = 1:nreps
+            if x isa CUDA.CuArray
+                x = CUDA.rand(T, size_in)
+            else
+                x = rand(T, size_in)
+            end
+            Lux.apply(closure, x, θ, st)
+        end
+    end
+    return t/nreps
+end
+
 function compute_epost(rhs, ps, dt, tspan, (u, t), dev)
     griddims = ((:) for _ = 1:(ndims(u)-2))
     x = u[griddims..., :, 1] |> dev
     y = u[griddims..., :, 2:end] |> dev # remember to discard sol at the initial time step
     prob = ODEProblem(rhs, x, tspan, ps)
+    t0 = time()
     pred = dev(
         solve(
             prob,
@@ -377,7 +396,8 @@ function compute_epost(rhs, ps, dt, tspan, (u, t), dev)
             tspan = tspan,
         ),
     )
+    t = time() - t0
     a = sum(y[griddims..., :, 1:(size(pred, 4)-1)] - pred[griddims..., :, 2:end])
     b = sum(abs2, y[griddims..., :, 1:(size(pred, 4)-1)])
-    return mean(sqrt.(a) ./ sqrt.(b))
+    return mean(sqrt.(a) ./ sqrt.(b)), t
 end
