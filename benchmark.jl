@@ -111,6 +111,11 @@ plot_labels = Dict(
         xlabel = "Model",
         ylabel = "Training time (s)",
     ),
+    :num_parameters => (
+        title  = "Number of parameters for different configurations",
+        xlabel = "Model",
+        ylabel = "Number of parameters",
+    ),
 )
 
 
@@ -209,6 +214,12 @@ for key in keys(plot_labels)
                     )
                     push!(bar_positions, col_index)
                     push!(bar_labels, "$closure_name")
+                elseif key == :num_parameters
+                    plot_num_parameters(
+                        outdir, closure_name, nles, Φ, col_index, ax, color
+                    )
+                    push!(bar_positions, col_index)
+                    push!(bar_labels, "$closure_name")
                 end
             end
         end
@@ -219,7 +230,7 @@ for key in keys(plot_labels)
     end
 
     # Add xticks in barplot
-    if key == :prior_time || key == :posteriori_time
+    if key == :prior_time || key == :posteriori_time || key == :num_parameters
         ax.xticks = (bar_positions, bar_labels)
     end
 

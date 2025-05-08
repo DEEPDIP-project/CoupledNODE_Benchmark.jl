@@ -483,3 +483,20 @@ function plot_posteriori_time(outdir, closure_name, nles, Φ, projectorders, mod
     )
 
 end
+
+function plot_num_parameters(outdir, closure_name, nles, Φ, model_index, ax, color)
+    # Load learned parameters
+    priortraining = loadprior(outdir, closure_name, [nles], [Φ])
+
+    # parameters count
+    θ_length = map(p -> length(p.θ), priortraining)[1]
+
+    label = Φ isa FaceAverage ? "FA" : "VA"
+    barplot!(
+        ax,
+        [model_index],
+        [θ_length];
+        label = "$closure_name (n = $nles, $label)",
+        color = color, # dont change this color
+    )
+end
