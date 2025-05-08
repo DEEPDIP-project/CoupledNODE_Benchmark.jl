@@ -107,7 +107,7 @@ export _convert_to_single_index,
     plot_prior_time,
     plot_posteriori_time,
     plot_num_parameters,
-    plot_eprior
+    plot_error
 
 export compute_eprior, compute_epost, compute_t_prior_inference
 

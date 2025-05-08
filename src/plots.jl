@@ -501,44 +501,67 @@ function plot_num_parameters(outdir, closure_name, nles, Φ, model_index, ax, co
     )
 end
 
-function plot_eprior(outdir, nles, data_index, model_index, ax, color, PLOT_STYLES)
-    eprior = namedtupleload(joinpath(outdir, "eprior.jld2"))
+function plot_error(error_file, closure_name, nles, data_index, model_index, ax, color, PLOT_STYLES)
+    error_data = namedtupleload(error_file)
 
-   label = "No closure (n = $nles)"
+    # For all bars
+    bar_width = 0.4
+    bar_gap = 0.2
+
+    # No model
+    label = "No closure (n = $nles)"
+    x_no_model = [0]
+    y_no_model = [error_data.nomodel[data_index]]
     if _missing_label(ax, label)  # add No closure only once
         barplot!(
             ax,
-            [0],
-            eprior.nomodel[data_index];
+            x_no_model,
+            y_no_model;
             label = label,
             color = PLOT_STYLES[:no_closure].color,
+            width = bar_width,
+            gap = bar_gap,
         )
     end
 
+    # Post and prior
+    x = repeat([model_index], 2)
+    y = [error_data.model_prior[data_index], error_data.model_post[data_index]]
     barplot!(
         ax,
-        [model_index],
-        eprior.model_prior[data_index];
-        label = "Prior (n = $nles)",
+        x,
+        y;
+        dodge = [1, 2],
+        label = "$closure_name (n = $nles)",
         color = color, # dont change this color
+        width = bar_width,
+        gap = bar_gap,
     )
 
-    barplot!(
-        ax,
-        [model_index + 1],
-        eprior.model_post[data_index];
-        label = "Post (DCF) (n = $nles)",
-        color = color, # dont change this color
-    )
-
-    label = "smag"
-    if _missing_label(ax, label) && label in keys(eprior)
+    # Smagorinsky
+    label = "smag (n = $nles)"
+    if _missing_label(ax, label) && label in keys(error_data)
+        x = repeat([model_index], 3)
+        y = [error_data.smag[data_index], error_data.smag[data_index], error_data.smag[data_index]]
         barplot!(
             ax,
-            [model_index + 2],
-            eprior.smag[data_index];
+            x,
+            y;
+            dodge = [1, 2, 3],
             color = PLOT_STYLES[:smag].color,
-            label = label,
+            label = "$closure_name $label",
+            width = bar_width,
+            gap = bar_gap,
         )
     end
+
+    # Put values in one array
+    x = vcat(x, x_no_model)
+    y = vcat(y, y_no_model)
+
+    # Remove NaN values from y
+    y = filter(!isnan, y)
+
+    # Update limits to have space for the legend
+    ax = _update_ax_limits(ax, x, y)
 end

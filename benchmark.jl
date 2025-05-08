@@ -121,6 +121,11 @@ plot_labels = Dict(
         xlabel = "Model",
         ylabel = "A-prior error",
     ),
+    :epost => (
+        title  = "A-posteriori error for different configurations",
+        xlabel = "Model",
+        ylabel = "A-posteriori error",
+    ),
 )
 
 
@@ -139,7 +144,7 @@ for key in keys(plot_labels)
     end
 
     # empty list for barplots
-    bar_positions = Int[]
+    bar_positions = Float64[]
     bar_labels = String[]
 
     # Loop over the configurations
@@ -226,12 +231,33 @@ for key in keys(plot_labels)
                     push!(bar_positions, col_index)
                     push!(bar_labels, "$closure_name")
                 elseif key == :eprior
-                    outdir_model = joinpath(outdir, closure_name)
-                    plot_eprior(
-                        outdir_model, nles, data_index, col_index, ax, color, PLOT_STYLES
+                    error_file = joinpath(
+                        outdir, closure_name, "eprior.jld2"
                     )
-                    push!(bar_positions, col_index)
-                    push!(bar_labels, "$closure_name")
+                    plot_error(
+                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
+                    )
+                    append!(bar_positions, [col_index - 0.2, col_index + 0.2])
+                    append!(bar_labels, ["prior", "post"])
+                    # add 0 to bar_positions and label no_clousure to bar_labels
+                    if i == 1
+                        push!(bar_positions, 0.0)
+                        push!(bar_labels, "no_closure")
+                    end
+                elseif key == :epost
+                    error_file = joinpath(
+                        outdir, closure_name, "epost.jld2"
+                    )
+                    plot_error(
+                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
+                    )
+                    append!(bar_positions, [col_index - 0.2, col_index + 0.2])
+                    append!(bar_labels, ["Lprior", "Lpost"])
+                    # add 0 to bar_positions and label no_clousure to bar_labels
+                    if i == 1
+                        push!(bar_positions, 0.0)
+                        push!(bar_labels, "no_closure")
+                    end
                 end
             end
         end
@@ -242,7 +268,7 @@ for key in keys(plot_labels)
     end
 
     # Add xticks in barplot
-    if key == :prior_time || key == :posteriori_time || key == :num_parameters || key == :eprior
+    if key == :prior_time || key == :posteriori_time || key == :num_parameters || key == :eprior || key == :epost
         ax.xticks = (bar_positions, bar_labels)
     end
 
