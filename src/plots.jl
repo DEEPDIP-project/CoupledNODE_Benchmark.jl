@@ -500,3 +500,45 @@ function plot_num_parameters(outdir, closure_name, nles, Φ, model_index, ax, co
         color = color, # dont change this color
     )
 end
+
+function plot_eprior(outdir, nles, data_index, model_index, ax, color, PLOT_STYLES)
+    eprior = namedtupleload(joinpath(outdir, "eprior.jld2"))
+
+   label = "No closure (n = $nles)"
+    if _missing_label(ax, label)  # add No closure only once
+        barplot!(
+            ax,
+            [0],
+            eprior.nomodel[data_index];
+            label = label,
+            color = PLOT_STYLES[:no_closure].color,
+        )
+    end
+
+    barplot!(
+        ax,
+        [model_index],
+        eprior.model_prior[data_index];
+        label = "Prior (n = $nles)",
+        color = color, # dont change this color
+    )
+
+    barplot!(
+        ax,
+        [model_index + 1],
+        eprior.model_post[data_index];
+        label = "Post (DCF) (n = $nles)",
+        color = color, # dont change this color
+    )
+
+    label = "smag"
+    if _missing_label(ax, label) && label in keys(eprior)
+        barplot!(
+            ax,
+            [model_index + 2],
+            eprior.smag[data_index];
+            color = PLOT_STYLES[:smag].color,
+            label = label,
+        )
+    end
+end
