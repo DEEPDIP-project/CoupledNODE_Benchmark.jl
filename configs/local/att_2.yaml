@@ -24,15 +24,18 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "cno_1"
-  type: cno
-  size: 32
-  cutoff: 10
-  channels: [2, 2]
-  activations: ["relu", "identity"]
-  down_factors: [2, 2]
+  name: "attcnn_2"
+  type: attentioncnn
   radii: [2, 2]
-  bottleneck_depths: [2, 2, 2]
+  channels: [24, 2]
+  activations: ["tanh", "identity"]
+  use_bias: [true, false]
+  use_attention: [true, false]
+  emb_sizes: [124, 124]
+  Ns: [40, 36]
+  patch_sizes: [8, 6]
+  n_heads: [4, 4]
+  sum_attention: [false, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
@@ -46,8 +49,8 @@ posteriori:
   projectorders: "(ProjectOrder.Last, )"
   nepoch: 10
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
-  nunroll: 2
-  nunroll_valid: 3
-  dt: T(1e-4)
+  nunroll: 5
+  nunroll_valid: 5
+  dt: T(1e-5)
   do_plot: false
   plot_train: false

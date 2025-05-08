@@ -143,7 +143,7 @@ else
     ## you want to test run on a laptop.
     @warn "Running on CPU"
     cuda_active = false
-    backend = CPU()
+    backend = IncompressibleNavierStokes.CPU()
     device = identity
     clean() = nothing
 end
@@ -433,6 +433,7 @@ let
         nomodel = ones(T, length(params.nles)),
         model_prior = zeros(T, size(θ_cnn_prior)),
         model_post = zeros(T, size(θ_cnn_post)),
+        model_t_prior_inference = zeros(T, size(θ_cnn_prior)),
     )
     for (ifil, Φ) in enumerate(params.filters), (ig, nles) in enumerate(params.nles)
         @info "Computing a-priori errors" Φ nles
@@ -440,13 +441,13 @@ let
         setup = getsetup(; params, nles)
         data = map(s -> namedtupleload(getdatafile(outdir, nles, Φ, s)), dns_seeds_test)
         testset = create_io_arrays(data, setup)
-        #i = 1:size(testset.u, 4)
         i = 1:min(100, size(testset.u, 4))
         u, c = testset.u[:, :, :, i], testset.c[:, :, :, i]
         testset = (u, c) |> device
         eprior.model_prior[ig, ifil] = compute_eprior(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)#[1]
+        eprior.model_t_prior_inference[ig, ifil] = compute_t_prior_inference(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)
         for iorder in eachindex(projectorders)
-            eprior.model_post[ig, ifil, iorder] = compute_eprior(closure, device(θ_cnn_post[ig, ifil, iorder]), st, testset...)#[1]
+            eprior.model_post[ig, ifil, iorder] = compute_eprior(closure, device(θ_cnn_post[ig, ifil, iorder]), st, testset...)
         end
     end
     jldsave(joinpath(outdir_model, "eprior.jld2"); eprior...)
@@ -472,6 +473,7 @@ let
         nomodel = zeros(T, s),
         model_prior = zeros(T, s),
         model_post = zeros(T, s),
+        model_t_post_inference = zeros(T, s),
     )
     for (iorder, projectorder) in enumerate(projectorders),
         (ifil, Φ) in enumerate(params.filters),
@@ -493,12 +495,12 @@ let
         ## No model
         dudt_nomod = NS.create_right_hand_side(
             setup, psolver)
-        epost.nomodel[I] = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , dt, tspan, data, device)
+        epost.nomodel[I], _ = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , dt, tspan, data, device)
         # with closure
         dudt = NS.create_right_hand_side_with_closure(
             setup, psolver, closure, st)
-        epost.model_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
-        epost.model_prior[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data, device)
+        epost.model_prior[I], _ = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
+        epost.model_post[I], epost.model_t_post_inference[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data, device)
         clean()
     end
     jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
