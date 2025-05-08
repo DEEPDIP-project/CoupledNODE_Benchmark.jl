@@ -41,7 +41,7 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 
 [sources]
-AttentionLayer = {rev = "main", url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"}
+AttentionLayer = {rev = "main", url = "git@github.com:DEEPDIP-project/AttentionLayer.jl.git"}
 ConvolutionalNeuralOperators = {rev = "main", url = "https://github.com/DEEPDIP-project/ConvolutionalNeuralOperators.jl.git"}
 CoupledNODE = {rev = "main", url = "https://github.com/DEEPDIP-project/CoupledNODE.jl.git"}
 NeuralClosure = {rev = "main", url = "https://github.com/DEEPDIP-project/NeuralClosure.jl.git"}
@@ -49,12 +49,12 @@ NeuralClosure = {rev = "main", url = "https://github.com/DEEPDIP-project/NeuralC
 [compat]
 Accessors = "0.1"
 Adapt = "4"
-AttentionLayer = "0.1.0"
+AttentionLayer = "0"
 CUDA = "5"
 CUDSS = "0.4"
 CairoMakie = "0.12"
 ComponentArrays = "0.15.19"
-ConvolutionalNeuralOperators = "0.1.0"
+ConvolutionalNeuralOperators = "0"
 Dates = "1"
 DifferentialEquations = "7.15.0"
 DocStringExtensions = "0.9"

@@ -99,10 +99,15 @@ export trainsmagorinsky, loadsmagorinsky
 
 export read_config, check_necessary_files
 export _convert_to_single_index,
-    plot_prior_traininghistory, plot_posteriori_traininghistory,
-    plot_divergence, plot_energy_evolution, plot_energy_spectra,
-    plot_prior_time, plot_posteriori_time, plot_num_parameters
+    plot_prior_traininghistory,
+    plot_posteriori_traininghistory,
+    plot_divergence,
+    plot_energy_evolution,
+    plot_energy_spectra,
+    plot_prior_time,
+    plot_posteriori_time,
+    plot_num_parameters
 
-export compute_eprior, compute_epost
+export compute_eprior, compute_epost, compute_t_prior_inference
 
 end # module Benchmark
