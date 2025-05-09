@@ -1,12 +1,17 @@
 
 function _update_ax_limits(ax, x, y)
-    if any(isnan, y)
+    # Remove NaN values from x and y
+    x = filter(!isnan, x)
+    y = filter(!isnan, y)
+
+    # if x or y is empty, return error
+    if isempty(x) || isempty(y)
+        @warn "x or y is empty, cannot update axis limits"
         return ax
     end
-    # Get data limits with extra padding for the legend
+
+    # Get data limits
     (xmin, xmax), (ymin, ymax) = extrema(x), extrema(y)
-    xmax += (xmax - xmin) * 0.5 + max(1e-6, abs(xmax) * 1e-6)
-    ymax += (ymax - ymin) * 0.5 + max(1e-6, abs(ymax) * 1e-6)
 
     # Get current axis limits
     current_xmin, current_xmax = something(ax.limits[][1], (xmin, xmax))
@@ -125,7 +130,7 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
 
     # add No closure only once
     label = "No closure (n = $nles)"
-    if _missing_label(ax, label) && label in keys(divergencehistory)
+    if _missing_label(ax, label) && haskey(divergencehistory, Symbol("nomodel"))
         lines!(
             ax,
             divergencehistory.nomodel[data_index];
@@ -138,7 +143,7 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
 
     # add reference only once
     label = "Reference"
-    if _missing_label(ax, label) && label in keys(divergencehistory)
+    if _missing_label(ax, label) && haskey(divergencehistory, Symbol("ref"))
         lines!(
             ax,
             divergencehistory.ref[data_index];
@@ -149,15 +154,14 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
         )
     end
 
-    label = "smag"
-    if _missing_label(ax, label) && label in keys(divergencehistory)
+    if haskey(divergencehistory, Symbol("smag"))
         lines!(
             ax,
             divergencehistory.smag[data_index];
             color = PLOT_STYLES[:smag].color,
             linestyle = PLOT_STYLES[:smag].linestyle,
             linewidth = PLOT_STYLES[:smag].linewidth,
-            label = label,
+            label = "$closure_name (smag) (n = $nles)",
         )
     end
 
@@ -207,7 +211,7 @@ function plot_energy_evolution(
 
     # add No closure only once
     label = "No closure (n = $nles)"
-    if _missing_label(ax, label) && label in keys(energyhistory)
+    if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
         lines!(
             ax,
             energyhistory.nomodel[data_index];
@@ -220,7 +224,7 @@ function plot_energy_evolution(
 
     # add reference only once
     label = "Reference"
-    if _missing_label(ax, label) && label in keys(energyhistory)
+    if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
         lines!(
             ax,
             energyhistory.ref[data_index];
@@ -231,15 +235,14 @@ function plot_energy_evolution(
         )
     end
 
-    label = "smag"
-    if _missing_label(ax, label) && label in keys(energyhistory)
+    if haskey(energyhistory, Symbol("smag"))
         lines!(
             ax,
             energyhistory.smag[data_index];
             color = PLOT_STYLES[:smag].color,
             linestyle = PLOT_STYLES[:smag].linestyle,
             linewidth = PLOT_STYLES[:smag].linewidth,
-            label = label,
+            label = "$closure_name (smag) (n = $nles)",
         )
     end
 
@@ -517,4 +520,58 @@ function plot_num_parameters(outdir, closure_name, nles, Φ, model_index, ax, co
         label = "$closure_name (n = $nles, $label)",
         color = color, # dont change this color
     )
+end
+
+function plot_error(error_file, closure_name, nles, data_index, model_index, ax, color, PLOT_STYLES)
+    error_data = namedtupleload(error_file)
+
+    # For all bars
+    bar_width = 0.4
+    bar_gap = 0.2
+
+    # No model
+    label = "No closure (n = $nles)"
+    x_no_model = [0]
+    y_no_model = [error_data.nomodel[data_index]]
+    if _missing_label(ax, label)  # add No closure only once
+        barplot!(
+            ax,
+            x_no_model,
+            y_no_model;
+            label = label,
+            color = PLOT_STYLES[:no_closure].color,
+            width = bar_width,
+            gap = bar_gap,
+        )
+    end
+
+    # Post and prior
+    x = repeat([model_index], 2)
+    y = [error_data.model_prior[data_index], error_data.model_post[data_index]]
+    dodge_vals = [1, 2]
+    labels = ["no_closue", "prior", "post"]
+    labels_positions = [0, model_index - 0.2, model_index + 0.2]
+
+
+    # Smagorinsky
+    if haskey(error_data, Symbol("smag"))
+        x = [x; model_index]
+        y = [y; error_data.smag[data_index]]
+        dodge_vals = [dodge_vals; 3]
+        labels = [labels; "smag"]
+        labels_positions = [0, model_index - 0.2, model_index, model_index + 0.2]
+    end
+
+    barplot!(
+        ax,
+        x,
+        y;
+        dodge = dodge_vals,
+        label = "$closure_name (n = $nles)",
+        color = color, # dont change this color
+        width = bar_width,
+        gap = bar_gap,
+    )
+
+    return labels, labels_positions
 end
