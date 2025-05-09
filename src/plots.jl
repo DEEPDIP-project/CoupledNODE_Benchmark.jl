@@ -1,9 +1,17 @@
 
 function _update_ax_limits(ax, x, y)
-    # Get data limits with extra padding for the legend
+    # Remove NaN values from x and y
+    x = filter(!isnan, x)
+    y = filter(!isnan, y)
+
+    # if x or y is empty, return error
+    if isempty(x) || isempty(y)
+        @warn "x or y is empty, cannot update axis limits"
+        return ax
+    end
+
+    # Get data limits
     (xmin, xmax), (ymin, ymax) = extrema(x), extrema(y)
-    xmax += (xmax - xmin) * 0.5 + max(1e-6, abs(xmax) * 1e-6)
-    ymax += (ymax - ymin) * 0.5 + max(1e-6, abs(ymax) * 1e-6)
 
     # Get current axis limits
     current_xmin, current_xmax = something(ax.limits[][1], (xmin, xmax))
@@ -505,7 +513,7 @@ function plot_error(error_file, closure_name, nles, data_index, model_index, ax,
     error_data = namedtupleload(error_file)
 
     # For all bars
-    bar_width = 0.4
+    bar_width = 0.5
     bar_gap = 0.2
 
     # No model
@@ -558,9 +566,6 @@ function plot_error(error_file, closure_name, nles, data_index, model_index, ax,
     # Put values in one array
     x = vcat(x, x_no_model)
     y = vcat(y, y_no_model)
-
-    # Remove NaN values from y
-    y = filter(!isnan, y)
 
     # Update limits to have space for the legend
     ax = _update_ax_limits(ax, x, y)

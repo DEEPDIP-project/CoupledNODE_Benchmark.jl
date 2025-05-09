@@ -128,7 +128,6 @@ plot_labels = Dict(
     ),
 )
 
-
 for key in keys(plot_labels)
     @info "Plotting $key"
 
@@ -264,7 +263,7 @@ for key in keys(plot_labels)
     end
     # Add legend
     if key != :energy_spectra
-        axislegend(ax, position = :rt)
+        Legend(fig[:, end+1], ax)
     end
 
     # Add xticks in barplot
