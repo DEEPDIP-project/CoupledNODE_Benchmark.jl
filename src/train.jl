@@ -227,6 +227,7 @@ function trainpost(;
     dt,
     do_plot = false,
     plot_train = false,
+    sensealg = nothing,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -286,9 +287,10 @@ function trainpost(;
         dudt_nn = NS.create_right_hand_side_with_closure(setup[1], psolver, closure, st)
         loss = create_loss_post_lux(
             dudt_nn;
-            sciml_solver = Tsit5(),
+            sciml_solver = RK4(),
             dt = dt,
             use_cuda = CUDA.functional(),
+            sensealg = sensealg,
         )
 
         if loadcheckpoint && isfile(checkfile)
@@ -387,7 +389,7 @@ function compute_epost(rhs, ps, dt, tspan, (u, t), dev)
     pred = dev(
         solve(
             prob,
-            Tsit5();
+            RK4();
             u0 = x,
             p = ps,
             adaptive = false,
