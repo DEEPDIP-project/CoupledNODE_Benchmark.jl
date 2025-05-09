@@ -101,15 +101,15 @@ plot_labels = Dict(
     :energy_spectra => (
         title  = "Energy spectra",
     ),
-    :prior_time => (
-        title  = "A-priori time for different configurations",
+    :training_time => (
+        title  = "Training time for different configurations",
         xlabel = "Model",
         ylabel = "Training time (s)",
     ),
-    :posteriori_time => (
-        title  = "A-posteriori time for different configurations",
+    :inference_time => (
+        title  = "Inference time for different configurations",
         xlabel = "Model",
-        ylabel = "Training time (s)",
+        ylabel = "Inference time (s)",
     ),
     :num_parameters => (
         title  = "Number of parameters for different configurations",
@@ -210,19 +210,19 @@ for key in keys(plot_labels)
                         num_of_models, color, PLOT_STYLES
                     )
 
-                elseif key == :prior_time
-                    plot_prior_time(
-                        outdir, closure_name, nles, Φ, col_index, ax, color
-                    )
-                    push!(bar_positions, col_index)
-                    push!(bar_labels, "$closure_name")
-                elseif key == :posteriori_time
+                elseif key == :training_time
                     projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-                    plot_posteriori_time(
+                    bar_label, bar_position = plot_training_time(
                         outdir, closure_name, nles, Φ, projectorders, col_index, ax, color
                     )
-                    push!(bar_positions, col_index)
-                    push!(bar_labels, "$closure_name")
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
+                elseif key == :inference_time
+                    bar_label, bar_position = plot_inference_time(
+                        outdir, closure_name, nles, data_index, col_index, ax, color
+                    )
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
                 elseif key == :num_parameters
                     plot_num_parameters(
                         outdir, closure_name, nles, Φ, col_index, ax, color
@@ -257,7 +257,7 @@ for key in keys(plot_labels)
     end
 
     # Add xticks in barplot
-    if key == :prior_time || key == :posteriori_time || key == :num_parameters || key == :eprior || key == :epost
+    if key in (:training_time, :inference_time, :num_parameters, :eprior, :epost)
         ax.xticks = (bar_positions, bar_labels)
     end
 
