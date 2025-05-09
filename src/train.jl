@@ -107,8 +107,39 @@ function trainprior(;
             push!(data_valid, hcat(data_i))
         end
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
+        #function this_create_io_arrays(data, setup)
+        #    (; dimension, N, Iu) = setup.grid
+        #    T = eltype(data[1].t)
+        #    D = dimension()
+        #    colons = ntuple(Returns(:), D)
+        #    fields = map((:u, :c)) do usym
+        #        u = map(data) do trajectory
+        #            nt = length(trajectory.t)
+        #            u = zeros(T, (N .- 2)..., D, nt)
+        #            for it = 1:nt, α = 1:D
+        #                copyto!(
+        #                    view(u, colons..., α, it),
+        #                    view(getfield(trajectory, usym), Iu[α], α, it),
+        #                )
+        #            end
+        #            u
+        #        end
+        #        u = cat(u...; dims = D + 2)
+        #        usym => u
+        #    end
+        #    (; fields...)
+        #end
         io_train = NS.create_io_arrays_priori(data_train, setup)
         io_valid = NS.create_io_arrays_priori(data_valid, setup)
+
+        #setup = getsetup(; params, nles)
+        #data_train =
+        #    map(s -> namedtupleload(getdatafile(outdir, nles, Φ, s)), dns_seeds_train)
+        #data_valid =
+        #    map(s -> namedtupleload(getdatafile(outdir, nles, Φ, s)), dns_seeds_valid)
+        #io_train = this_create_io_arrays(data_train, setup)
+        #io_valid = this_create_io_arrays(data_valid, setup)
+
         θ = device(copy(θ_start))
         dataloader_prior = NS.create_dataloader_prior(
             io_train[itotal];
@@ -227,6 +258,7 @@ function trainpost(;
     dt,
     do_plot = false,
     plot_train = false,
+    sensealg = nothing,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -286,9 +318,10 @@ function trainpost(;
         dudt_nn = NS.create_right_hand_side_with_closure(setup[1], psolver, closure, st)
         loss = create_loss_post_lux(
             dudt_nn;
-            sciml_solver = Tsit5(),
+            sciml_solver = RK4(),
             dt = dt,
             use_cuda = CUDA.functional(),
+            sensealg = sensealg,
         )
 
         if loadcheckpoint && isfile(checkfile)
@@ -387,7 +420,7 @@ function compute_epost(rhs, ps, dt, tspan, (u, t), dev)
     pred = dev(
         solve(
             prob,
-            Tsit5();
+            RK4();
             u0 = x,
             p = ps,
             adaptive = false,

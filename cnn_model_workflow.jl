@@ -360,6 +360,8 @@ let
         dt = eval(Meta.parse(conf["posteriori"]["dt"])),
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
+        #sensealg = eval(Meta.parse(conf["posteriori"]["sensealg"])),
+        sensealg = conf["posteriori"]["sensealg"],
     )
 end
 end

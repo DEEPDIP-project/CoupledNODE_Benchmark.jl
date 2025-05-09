@@ -9,7 +9,7 @@ params:
   tburn: 0.5
   tsim: 2.0
   savefreq: 100
-  ndns: 64
+  ndns: 1024
   nles: [32]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
@@ -44,7 +44,7 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 10
+  nepoch: 100
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   nunroll: 2
   nunroll_valid: 3
