@@ -116,8 +116,17 @@ plot_labels = Dict(
         xlabel = "Model",
         ylabel = "Number of parameters",
     ),
+    :eprior => (
+        title  = "A-prior error for different configurations",
+        xlabel = "Model",
+        ylabel = "A-prior error",
+    ),
+    :epost => (
+        title  = "A-posteriori error for different configurations",
+        xlabel = "Model",
+        ylabel = "A-posteriori error",
+    ),
 )
-
 
 for key in keys(plot_labels)
     @info "Plotting $key"
@@ -134,7 +143,7 @@ for key in keys(plot_labels)
     end
 
     # empty list for barplots
-    bar_positions = Int[]
+    bar_positions = Float64[]
     bar_labels = String[]
 
     # Loop over the configurations
@@ -220,17 +229,35 @@ for key in keys(plot_labels)
                     )
                     push!(bar_positions, col_index)
                     push!(bar_labels, "$closure_name")
+                elseif key == :eprior
+                    error_file = joinpath(
+                        outdir, closure_name, "eprior.jld2"
+                    )
+                    bar_label, bar_position = plot_error(
+                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
+                    )
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
+                elseif key == :epost
+                    error_file = joinpath(
+                        outdir, closure_name, "epost.jld2"
+                    )
+                    bar_label, bar_position = plot_error(
+                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
+                    )
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
                 end
             end
         end
     end
     # Add legend
     if key != :energy_spectra
-        axislegend(ax, position = :rt)
+        Legend(fig[:, end+1], ax)
     end
 
     # Add xticks in barplot
-    if key == :prior_time || key == :posteriori_time || key == :num_parameters
+    if key == :prior_time || key == :posteriori_time || key == :num_parameters || key == :eprior || key == :epost
         ax.xticks = (bar_positions, bar_labels)
     end
 
