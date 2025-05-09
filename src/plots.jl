@@ -513,7 +513,7 @@ function plot_error(error_file, closure_name, nles, data_index, model_index, ax,
     error_data = namedtupleload(error_file)
 
     # For all bars
-    bar_width = 0.5
+    bar_width = 0.4
     bar_gap = 0.2
 
     # No model
@@ -535,38 +535,30 @@ function plot_error(error_file, closure_name, nles, data_index, model_index, ax,
     # Post and prior
     x = repeat([model_index], 2)
     y = [error_data.model_prior[data_index], error_data.model_post[data_index]]
+    dodge_vals = [1, 2]
+    labels = ["no_closue", "prior", "post"]
+    labels_positions = [0, model_index - 0.2, model_index + 0.2]
+
+
+    # Smagorinsky
+    if haskey(error_data, Symbol("smag"))
+        x = [x; model_index]
+        y = [y; error_data.smag[data_index]]
+        dodge_vals = [dodge_vals; 3]
+        labels = [labels; "smag"]
+        labels_positions = [0, model_index - 0.2, model_index, model_index + 0.2]
+    end
+
     barplot!(
         ax,
         x,
         y;
-        dodge = [1, 2],
+        dodge = dodge_vals,
         label = "$closure_name (n = $nles)",
         color = color, # dont change this color
         width = bar_width,
         gap = bar_gap,
     )
 
-    # Smagorinsky
-    label = "smag (n = $nles)"
-    if _missing_label(ax, label) && label in keys(error_data)
-        x = repeat([model_index], 3)
-        y = [error_data.smag[data_index], error_data.smag[data_index], error_data.smag[data_index]]
-        barplot!(
-            ax,
-            x,
-            y;
-            dodge = [1, 2, 3],
-            color = PLOT_STYLES[:smag].color,
-            label = "$closure_name $label",
-            width = bar_width,
-            gap = bar_gap,
-        )
-    end
-
-    # Put values in one array
-    x = vcat(x, x_no_model)
-    y = vcat(y, y_no_model)
-
-    # Update limits to have space for the legend
-    ax = _update_ax_limits(ax, x, y)
+    return labels, labels_positions
 end
