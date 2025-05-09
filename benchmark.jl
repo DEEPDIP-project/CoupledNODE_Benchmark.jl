@@ -233,30 +233,20 @@ for key in keys(plot_labels)
                     error_file = joinpath(
                         outdir, closure_name, "eprior.jld2"
                     )
-                    plot_error(
+                    bar_label, bar_position = plot_error(
                         error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
                     )
-                    append!(bar_positions, [col_index - 0.2, col_index + 0.2])
-                    append!(bar_labels, ["prior", "post"])
-                    # add 0 to bar_positions and label no_clousure to bar_labels
-                    if i == 1
-                        push!(bar_positions, 0.0)
-                        push!(bar_labels, "no_closure")
-                    end
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
                 elseif key == :epost
                     error_file = joinpath(
                         outdir, closure_name, "epost.jld2"
                     )
-                    plot_error(
+                    bar_label, bar_position = plot_error(
                         error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
                     )
-                    append!(bar_positions, [col_index - 0.2, col_index + 0.2])
-                    append!(bar_labels, ["Lprior", "Lpost"])
-                    # add 0 to bar_positions and label no_clousure to bar_labels
-                    if i == 1
-                        push!(bar_positions, 0.0)
-                        push!(bar_labels, "no_closure")
-                    end
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
                 end
             end
         end
