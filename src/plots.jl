@@ -130,7 +130,7 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
 
     # add No closure only once
     label = "No closure (n = $nles)"
-    if _missing_label(ax, label) && label in keys(divergencehistory)
+    if _missing_label(ax, label) && haskey(divergencehistory, Symbol("nomodel"))
         lines!(
             ax,
             divergencehistory.nomodel[data_index];
@@ -143,7 +143,7 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
 
     # add reference only once
     label = "Reference"
-    if _missing_label(ax, label) && label in keys(divergencehistory)
+    if _missing_label(ax, label) && haskey(divergencehistory, Symbol("ref"))
         lines!(
             ax,
             divergencehistory.ref[data_index];
@@ -154,15 +154,14 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
         )
     end
 
-    label = "smag"
-    if _missing_label(ax, label) && label in keys(divergencehistory)
+    if haskey(divergencehistory, Symbol("smag"))
         lines!(
             ax,
             divergencehistory.smag[data_index];
             color = PLOT_STYLES[:smag].color,
             linestyle = PLOT_STYLES[:smag].linestyle,
             linewidth = PLOT_STYLES[:smag].linewidth,
-            label = label,
+            label = "$closure_name (smag) (n = $nles)",
         )
     end
 
@@ -212,7 +211,7 @@ function plot_energy_evolution(
 
     # add No closure only once
     label = "No closure (n = $nles)"
-    if _missing_label(ax, label) && label in keys(energyhistory)
+    if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
         lines!(
             ax,
             energyhistory.nomodel[data_index];
@@ -225,7 +224,7 @@ function plot_energy_evolution(
 
     # add reference only once
     label = "Reference"
-    if _missing_label(ax, label) && label in keys(energyhistory)
+    if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
         lines!(
             ax,
             energyhistory.ref[data_index];
@@ -236,15 +235,14 @@ function plot_energy_evolution(
         )
     end
 
-    label = "smag"
-    if _missing_label(ax, label) && label in keys(energyhistory)
+    if haskey(energyhistory, Symbol("smag"))
         lines!(
             ax,
             energyhistory.smag[data_index];
             color = PLOT_STYLES[:smag].color,
             linestyle = PLOT_STYLES[:smag].linestyle,
             linewidth = PLOT_STYLES[:smag].linewidth,
-            label = label,
+            label = "$closure_name (smag) (n = $nles)",
         )
     end
 
