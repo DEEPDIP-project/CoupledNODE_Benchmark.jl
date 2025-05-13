@@ -379,6 +379,7 @@ let
         dt = eval(Meta.parse(conf["posteriori"]["dt"])),
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
+        sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,
     )
 end
 end
@@ -504,7 +505,7 @@ let
         setup = getsetup(; params, nles)
         psolver = psolver_spectral(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
-        it = 1:100
+        it = 1:length(sample.t)
         data = (;
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
@@ -519,8 +520,8 @@ let
         # with closure
         dudt = NS.create_right_hand_side_with_closure(
             setup, psolver, closure, st)
-        epost.model_prior[I], _ = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
-        epost.model_post[I], epost.model_t_post_inference[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data, device)
+        epost.model_prior[I], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
+        epost.model_post[I], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , dt, tspan, data, device)
         clean()
     end
     jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
@@ -655,7 +656,6 @@ let
         dt_sample = T(0.05) # Sample every 0.05 seconds for the history (same as INS)
         tsave = (x*dt_sample for x in 1:(floor(Int, length(sample.t) / 0.05)+1))
 
-
         dudt = NS.create_right_hand_side_with_closure(
             setup, psolver, closure, st)
 
@@ -665,10 +665,10 @@ let
         pred_prior =
                 solve(
                     prob_prior,
-                    Tsit5();
+                    RK4();
                     u0 = x,
                     p = θ_prior,
-                    adaptive = false,
+                    adaptive = true,
                     saveat = tsave,
                     dt = dt,
                     tspan = tspan,
@@ -679,10 +679,10 @@ let
         pred_post =
                 solve(
                     prob_post,
-                    Tsit5();
+                    RK4();
                     u0 = x,
                     p = θ_post,
-                    adaptive = false,
+                    adaptive = true,
                     saveat = tsave,
                     dt = dt,
                     tspan = tspan,
@@ -970,24 +970,24 @@ let
         pred_prior =
             solve(
                     prob_prior,
-                    Tsit5();
+                    RK4(),
                     u0 = x,
                     p = θ_prior,
                     adaptive = true,
                     saveat = times,
-                    dt = dt,
+                    #dt = dt,
                     tspan = tspan,
             )
         prob_post = ODEProblem(dudt, x, tspan, θ_post)
         pred_post =
             solve(
                     prob_post,
-                    Tsit5();
+                    RK4(),
                     u0 = x,
                     p = θ_post,
                     adaptive = true,
                     saveat = times,
-                    dt = dt,
+                    #dt = dt,
                     tspan = tspan,
             )
 

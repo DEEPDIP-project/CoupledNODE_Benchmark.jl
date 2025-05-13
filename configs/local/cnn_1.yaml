@@ -28,9 +28,7 @@ closure:
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
-  activations:
-    ["tanh", "tanh", "tanh", "tanh", "identity"]
-    #activations: ["Lux.relu", "Lux.relu", "Lux.relu", "Lux.relu", "identity"]
+  activations: ["tanh", "tanh", "tanh", "tanh", "identity"]
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
@@ -45,8 +43,8 @@ posteriori:
   projectorders: "(ProjectOrder.Last, )"
   nepoch: 100
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(1))"
-  nunroll: 2
-  nunroll_valid: 3
+  nunroll: 5
+  nunroll_valid: 5
   dt: T(1e-4)
   do_plot: false
   plot_train: false

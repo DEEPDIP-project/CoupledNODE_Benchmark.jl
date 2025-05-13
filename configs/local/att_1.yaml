@@ -26,16 +26,16 @@ seeds:
 closure:
   name: "attcnn_1"
   type: attentioncnn
-  radii: [2, 2]
-  channels: [24, 2]
-  activations: ["relu", "identity"]
-  use_bias: [true, false]
-  use_attention: [true, true]
-  emb_sizes: [124, 124]
-  Ns: [40, 36]
-  patch_sizes: [8, 6]
-  n_heads: [4, 4]
-  sum_attention: [false, false]
+  radii: [2, 2, 2, 2, 2]
+  channels: [24, 24, 24, 24, 2]
+  activations: ["tanh", "tanh", "tanh", "tanh", "identity"]
+  use_bias: [true, true, true, true, false]
+  use_attention: [true, false, false, false, false]
+  emb_sizes: [124, 124, 124, 124, 124]
+  Ns: [40, 36, 36, 36, 36]
+  patch_sizes: [8, 6, 6, 6, 6]
+  n_heads: [4, 4, 4, 4, 4]
+  sum_attention: [false, false, false, false, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
@@ -49,8 +49,8 @@ posteriori:
   projectorders: "(ProjectOrder.Last, )"
   nepoch: 100
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
-  nunroll: 2
-  nunroll_valid: 3
+  nunroll: 5
+  nunroll_valid: 5
   dt: T(1e-4)
   do_plot: false
   plot_train: false

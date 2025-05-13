@@ -360,8 +360,7 @@ let
         dt = eval(Meta.parse(conf["posteriori"]["dt"])),
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
-        #sensealg = eval(Meta.parse(conf["posteriori"]["sensealg"])),
-        sensealg = conf["posteriori"]["sensealg"],
+        sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,
     )
 end
 end
@@ -486,7 +485,7 @@ let
         setup = getsetup(; params, nles)
         psolver = psolver_spectral(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
-        it = 1:100
+        it = 1:length(sample.t)
         data = (;
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
@@ -501,8 +500,8 @@ let
         # with closure
         dudt = NS.create_right_hand_side_with_closure(
             setup, psolver, closure, st)
-        epost.model_prior[I], _ = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
-        epost.model_post[I], epost.model_t_post_inference[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data, device)
+        epost.model_prior[I], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
+        epost.model_post[I], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , dt, tspan, data, device)
         clean()
     end
     jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
@@ -929,8 +928,6 @@ let
                 psolver,
                 θ,
             )[1].u |> Array
-            #@info result
-            #Array(result)
         end
         t1 = t[1]
         for i in eachindex(times)
