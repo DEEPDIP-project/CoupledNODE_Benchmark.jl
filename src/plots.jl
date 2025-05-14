@@ -455,53 +455,74 @@ function _convert_to_single_index(i, j, k, dimj, dimk)
     return (i - 1) * dimj * dimk + (j - 1) * dimk + k
 end
 
-function plot_prior_time(outdir, closure_name, nles, Φ, model_index, ax, color)
-    # Load learned parameters
+function plot_training_time(outdir, closure_name, nles, Φ, projectorders, model_index, ax, color)
+    # Load prior data
     priortraining = loadprior(outdir, closure_name, [nles], [Φ])
+    training_time_prior = priortraining[1].time_per_epoch
 
-    # training time in seconds
-    training_time = map(p -> p.comptime, priortraining) |> vec .|> x -> round(x; digits = 3)
+    # Load post data
+    if closure_name == "INS_ref"
+        posttraining = namedtupleload(Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]))
+        training_time_post = posttraining.single_stored_object.time_per_epoch
+    else
+        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
+        training_time_post = posttraining[1].time_per_epoch
+    end
 
-    label = Φ isa FaceAverage ? "FA" : "VA"
+    # Post and prior
+    x = repeat([model_index], 2)
+    y = round.([training_time_prior, training_time_post]; digits = 3)  # 3 digits because time is in seconds
+    dodge_vals = [1, 2]
+    labels = ["prior", "post"]
+    labels_positions = [model_index - 0.2, model_index + 0.2]
+
     barplot!(
         ax,
-        [model_index],
-        training_time;
-        label = "$closure_name (n = $nles, $label)",
+        x,
+        y;
+        dodge = dodge_vals,
+        label = "$closure_name (n = $nles)",
         color = color, # dont change this color
     )
+    return labels, labels_positions
 
 end
 
-function plot_posteriori_time(
-    outdir,
-    closure_name,
-    nles,
-    Φ,
-    projectorders,
-    model_index,
-    ax,
-    color,
-)
+function plot_inference_time(outdir, closure_name, nles, data_index, model_index, ax, color)
+    # Prior
+    eprior_data = namedtupleload(joinpath(outdir, closure_name, "eprior.jld2"))
+    inference_time_prior = eprior_data.model_t_prior_inference[data_index]
 
-    if closure_name == "INS_ref"
-        postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1])
-        posttraining = namedtupleload(postfile)
-        training_time = [round(posttraining.single_stored_object.comptime; digits = 3)]
-    else
-        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
-        training_time =
-            map(p -> p.comptime, posttraining) |> vec .|> x -> round(x; digits = 3)
+    # Post
+    epost_data = namedtupleload(joinpath(outdir, closure_name, "epost.jld2"))
+    inference_time_post = epost_data.model_t_post_inference[data_index]
+
+    # prior and post
+    x = repeat([model_index], 2)
+    y = round.([inference_time_prior, inference_time_post]; digits = 3)  # 3 digits because time is in seconds
+    dodge_vals = [1, 2]
+    labels = ["prior", "post"]
+    labels_positions = [model_index - 0.2, model_index + 0.2]
+
+    # Add smag if exists
+    if haskey(epost_data, Symbol("smag"))
+        inference_time_smag = epost_data.smag_t_post_inference[data_index]
+        x = [x; model_index]
+        y = [y; inference_time_smag]
+        dodge_vals = [dodge_vals; 3]
+        labels = [labels; "smag"]
+        labels_positions = [model_index - 0.3, model_index, model_index + 0.3]
     end
 
-    label = Φ isa FaceAverage ? "FA" : "VA"
     barplot!(
         ax,
-        [model_index],
-        training_time;
-        label = "$closure_name (n = $nles, $label)",
+        x,
+        y;
+        dodge = dodge_vals,
+        label = "$closure_name (n = $nles)",
         color = color, # dont change this color
     )
+    return labels, labels_positions
 
 end
 
@@ -551,7 +572,6 @@ function plot_error(error_file, closure_name, nles, data_index, model_index, ax,
     dodge_vals = [1, 2]
     labels = ["no_closue", "prior", "post"]
     labels_positions = [0, model_index - 0.2, model_index + 0.2]
-
 
     # Smagorinsky
     if haskey(error_data, Symbol("smag"))

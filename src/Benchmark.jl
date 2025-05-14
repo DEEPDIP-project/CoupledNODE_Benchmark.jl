@@ -104,8 +104,8 @@ export _convert_to_single_index,
     plot_divergence,
     plot_energy_evolution,
     plot_energy_spectra,
-    plot_prior_time,
-    plot_posteriori_time,
+    plot_training_time,
+    plot_inference_time,
     plot_num_parameters,
     plot_error
 
