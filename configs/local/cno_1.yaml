@@ -9,7 +9,7 @@ params:
   tburn: 0.5
   tsim: 2.0
   savefreq: 100
-  ndns: 64
+  ndns: 1024
   nles: [32]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
@@ -28,11 +28,11 @@ closure:
   type: cno
   size: 32
   cutoff: 10
-  channels: [2, 2]
-  activations: ["relu", "identity"]
-  down_factors: [2, 2]
-  radii: [2, 2]
-  bottleneck_depths: [2, 2, 2]
+  channels: [24, 24, 24, 24]
+  activations: ["Lux.tanh_fast", "Lux.tanh_fast", "Lux.tanh_fast", "identity"]
+  down_factors: [2, 2, 2, 2]
+  radii: [2, 2, 2, 2]
+  bottleneck_depths: [2, 2, 2, 2, 2]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
@@ -44,10 +44,10 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 10
+  nepoch: 100
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
-  nunroll: 2
-  nunroll_valid: 3
+  nunroll: 5
+  nunroll_valid: 5
   dt: T(1e-4)
   do_plot: false
   plot_train: false

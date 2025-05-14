@@ -109,6 +109,7 @@ function trainprior(;
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
         io_train = NS.create_io_arrays_priori(data_train, setup)
         io_valid = NS.create_io_arrays_priori(data_valid, setup)
+
         θ = device(copy(θ_start))
         dataloader_prior = NS.create_dataloader_prior(
             io_train[itotal];
@@ -227,6 +228,7 @@ function trainpost(;
     dt,
     do_plot = false,
     plot_train = false,
+    sensealg = nothing,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -284,11 +286,13 @@ function trainpost(;
         )
 
         dudt_nn = NS.create_right_hand_side_with_closure(setup[1], psolver, closure, st)
+        griddims = ((:) for _ = 1:params.D)
         loss = create_loss_post_lux(
-            dudt_nn;
-            sciml_solver = Tsit5(),
+            dudt_nn,
+            griddims;
+            sciml_solver = RK4(),
             dt = dt,
-            use_cuda = CUDA.functional(),
+            sensealg = sensealg,
         )
 
         if loadcheckpoint && isfile(checkfile)
@@ -387,7 +391,7 @@ function compute_epost(rhs, ps, dt, tspan, (u, t), dev)
     pred = dev(
         solve(
             prob,
-            Tsit5();
+            RK4();
             u0 = x,
             p = ps,
             adaptive = false,
@@ -397,7 +401,7 @@ function compute_epost(rhs, ps, dt, tspan, (u, t), dev)
         ),
     )
     t = time() - t0
-    a = sum(y[griddims..., :, 1:(size(pred, 4)-1)] - pred[griddims..., :, 2:end])
+    a = sum(abs2, y[griddims..., :, 1:(size(pred, 4)-1)] - pred[griddims..., :, 2:end])
     b = sum(abs2, y[griddims..., :, 1:(size(pred, 4)-1)])
     return mean(sqrt.(a) ./ sqrt.(b)), t
 end
