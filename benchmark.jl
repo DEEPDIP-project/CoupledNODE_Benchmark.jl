@@ -95,7 +95,8 @@ plot_labels = Dict(
     ),
     :energy_evolution => (
         title  = "Energy evolution for different configurations",
-        xlabel = "t",
+        xlabel1 = "t",
+        xlabel2 = "frequency",
         ylabel = "E(t)",
     ),
     :energy_spectra => (
@@ -133,12 +134,34 @@ for key in keys(plot_labels)
 
     # Create the figure
     fig = Figure(; size = (950, 600))
-    if key != :energy_spectra
+    if key != :energy_spectra && key != :energy_evolution
         ax = Axis(
             fig[1, 1];
             title = plot_labels[key].title,
             xlabel = plot_labels[key].xlabel,
             ylabel = plot_labels[key].ylabel,
+        )
+    end
+    if key == :energy_evolution
+        Label(
+            fig[1, 1],
+            plot_labels[key].title;
+            font = :bold,
+            tellwidth = false,
+        )
+        gplot = fig[2, 1]
+        ax1 = Axis(
+            gplot[1, 1];
+            xlabel = plot_labels[key].xlabel1,
+            ylabel = plot_labels[key].ylabel,
+        )
+        ax = ax1
+        ax2 = Axis(
+            gplot[1, 2];
+            xlabel = plot_labels[key].xlabel2,
+            ylabel = plot_labels[key].ylabel,
+            yaxisposition = :right,
+            xreversed=true,
         )
     end
 
@@ -200,7 +223,7 @@ for key in keys(plot_labels)
 
                 elseif key == :energy_evolution
                     plot_energy_evolution(
-                        outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
+                        outdir, closure_name, nles, Φ, data_index, ax1, ax2, color, PLOT_STYLES
                     )
 
                 elseif key== :energy_spectra

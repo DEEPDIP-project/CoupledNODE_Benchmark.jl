@@ -197,7 +197,8 @@ function plot_energy_evolution(
     nles,
     Φ,
     data_index,
-    ax,
+    ax1,
+    ax2,
     color,
     PLOT_STYLES,
 )
@@ -209,24 +210,36 @@ function plot_energy_evolution(
     end
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
+    num_bins = 10
+
     # add No closure only once
     label = "No closure (n = $nles)"
-    if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
+    if _missing_label(ax1, label) && haskey(energyhistory, Symbol("nomodel"))
         lines!(
-            ax,
+            ax1,
             energyhistory.nomodel[data_index];
             label = label,
             linestyle = PLOT_STYLES[:no_closure].linestyle,
             linewidth = PLOT_STYLES[:no_closure].linewidth,
             color = PLOT_STYLES[:no_closure].color,
         )
+
+        energy_vals = [p[2] for p in energyhistory.nomodel[data_index]]
+        hist!(
+            ax2,
+            energy_vals;
+            bins = num_bins,
+            label = label,
+            color = PLOT_STYLES[:no_closure].color,
+            direction=:x,
+        )
     end
 
     # add reference only once
     label = "Reference"
-    if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
+    if _missing_label(ax1, label) && haskey(energyhistory, Symbol("ref"))
         lines!(
-            ax,
+            ax1,
             energyhistory.ref[data_index];
             color = PLOT_STYLES[:reference].color,
             linestyle = PLOT_STYLES[:reference].linestyle,
@@ -237,7 +250,7 @@ function plot_energy_evolution(
 
     if haskey(energyhistory, Symbol("smag"))
         lines!(
-            ax,
+            ax1,
             energyhistory.smag[data_index];
             color = PLOT_STYLES[:smag].color,
             linestyle = PLOT_STYLES[:smag].linestyle,
@@ -248,7 +261,7 @@ function plot_energy_evolution(
 
     label = Φ isa FaceAverage ? "FA" : "VA"
     lines!(
-        ax,
+        ax1,
         energyhistory.model_prior[data_index];
         label = "$closure_name (prior) (n = $nles, $label)",
         linestyle = PLOT_STYLES[:prior].linestyle,
@@ -256,7 +269,7 @@ function plot_energy_evolution(
         color = color, # dont change this color
     )
     lines!(
-        ax,
+        ax1,
         energyhistory.model_post[data_index];
         label = "$closure_name (post) (n = $nles, $label)",
         linestyle = PLOT_STYLES[:post].linestyle,
@@ -267,7 +280,8 @@ function plot_energy_evolution(
     # update axis limits
     x_values = [point[1] for v in values(energyhistory) for point in v[data_index]]
     y_values = [point[2] for v in values(energyhistory) for point in v[data_index]]
-    ax = _update_ax_limits(ax, x_values, y_values)
+    ax1 = _update_ax_limits(ax1, x_values, y_values)
+
 end
 
 function _get_spectra(setup, u)
