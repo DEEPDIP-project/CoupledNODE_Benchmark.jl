@@ -4,31 +4,25 @@ function getdatafile(outdir, nles, filter, seed)
 end
 
 function createdata(; params, seed, outdir, backend)
-    @info "Creating DNS trajectory for seed $(repr(seed))"
-    filenames = []
     for (nles, Φ) in Iterators.product(params.nles, params.filters)
-        f = getdatafile(outdir, nles, Φ, seed)
-        datadir = dirname(f)
+
+        filename = getdatafile(outdir, nles, Φ, seed)
+        datadir = dirname(filename)
         ispath(datadir) || mkpath(datadir)
-        push!(filenames, f)
+
+        if isfile(filename)
+            @info "Data file $(filename) already exists. Skipping."
+            return
+        end
+        @info "Creating data for" nles Φ seed
+
+        data = NS.create_les_data_projected(;
+            params...,
+            rng = Xoshiro(seed),
+            backend = backend,
+        )
+        jldsave(filename; data...)
     end
-    if isfile(filenames[1])
-        @info "Data file $(filenames[1]) already exists. Skipping."
-        return
-    end
-    data = create_les_data(;
-        params...,
-        rng = Xoshiro(seed),
-        filenames,
-        Δt = params.Δt,
-        backend = backend,
-    )
-    @info(
-        "Trajectory info:",
-        data[1].comptime / 60,
-        length(data[1].t),
-        Base.summarysize(data) * 1e-9,
-    )
 end
 
 function getpriorfile(outdir, closure_name, nles, filter)
@@ -99,20 +93,22 @@ function trainprior(;
         data_train = []
         for s in dns_seeds_train
             data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
-            push!(data_train, hcat(data_i))
+            # If you are using INS data, then you have to do hcat(data_i) before pushing
+            push!(data_train, data_i)
         end
         data_valid = []
         for s in dns_seeds_valid
             data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
-            push!(data_valid, hcat(data_i))
+            push!(data_valid, data_i)
         end
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
-        io_train = NS.create_io_arrays_priori(data_train, setup)
-        io_valid = NS.create_io_arrays_priori(data_valid, setup)
+        @assert length(nles) == 1 "Only one nles for a-priori training"
+        io_train = NS.create_io_arrays_priori(data_train, setup[1], device)
+        io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device)
 
         θ = device(copy(θ_start))
         dataloader_prior = NS.create_dataloader_prior(
-            io_train[itotal];
+            io_train;
             batchsize = batchsize,
             rng = Random.Xoshiro(dns_seeds_train[itotal]),
             device = device,
@@ -145,7 +141,7 @@ function trainprior(;
         callbackstate, callback = NS.create_callback(
             closure,
             θ,
-            io_valid[itotal],
+            io_valid,
             loss,
             st;
             callbackstate = callbackstate,
@@ -217,6 +213,7 @@ function trainpost(;
     dns_seeds_train,
     dns_seeds_valid,
     nunroll,
+    nsamples,
     closure,
     closure_name,
     θ_start,
@@ -232,6 +229,9 @@ function trainpost(;
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
+    if nsamples === nothing
+        nsamples = 1
+    end
     for projectorder in projectorders,
         (ifil, Φ) in enumerate(params.filters),
         (igrid, nles) in enumerate(params.nles)
@@ -265,33 +265,36 @@ function trainpost(;
         data_train = []
         for s in dns_seeds_train
             data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
-            push!(data_train, hcat(data_i))
+            push!(data_train, data_i)
         end
 
         data_valid = []
         for s in dns_seeds_valid
             data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
-            push!(data_valid, hcat(data_i))
+            push!(data_valid, data_i)
         end
 
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
-        io_train = NS.create_io_arrays_posteriori(data_train, setup)
-        io_valid = NS.create_io_arrays_posteriori(data_valid, setup)
+        io_train = NS.create_io_arrays_posteriori(data_train, setup[1], device)
+        io_valid = NS.create_io_arrays_posteriori(data_valid, setup[1], device)
         θ = device(copy(θ_start[itotal]))
         dataloader_post = NS.create_dataloader_posteriori(
-            io_train[itotal];
+            io_train;
             nunroll = nunroll,
+            nsamples = nsamples,
             rng = Random.Xoshiro(dns_seeds_train[itotal]),
             device = device,
         )
 
         dudt_nn = NS.create_right_hand_side_with_closure(setup[1], psolver, closure, st)
         griddims = ((:) for _ = 1:params.D)
-        loss = create_loss_post_lux(
+        inside = ((2:(nles+1)) for _ = 1:params.D)
+        loss = CoupledNODE.create_loss_post_lux(
             dudt_nn,
-            griddims;
-            sciml_solver = RK4(),
-            dt = dt,
+            griddims,
+            inside;
+            ensemble = nsamples > 1,
+            sciml_solver = Tsit5(),
             sensealg = sensealg,
         )
 
@@ -318,7 +321,7 @@ function trainpost(;
         callbackstate, callback = NS.create_callback(
             closure,
             θ,
-            io_valid[itotal],
+            io_valid,
             loss,
             st;
             callbackstate = callbackstate,
@@ -382,26 +385,31 @@ function compute_t_prior_inference(closure, θ, st, x, y, nreps = 1000)
     return t/nreps
 end
 
-function compute_epost(rhs, ps, dt, tspan, (u, t), dev)
+
+function compute_epost(rhs, ps, tspan, (u, t), tsave)
     griddims = ((:) for _ = 1:(ndims(u)-2))
-    x = u[griddims..., :, 1] |> dev
-    y = u[griddims..., :, 2:end] |> dev # remember to discard sol at the initial time step
+    inside = ((2:(size(u, 1)-1)) for _ = 1:(ndims(u)-2))
+    x = u[griddims..., :, 1]
+    y = u[griddims..., :, 2:end]
     prob = ODEProblem(rhs, x, tspan, ps)
     t0 = time()
-    pred = dev(
-        solve(
-            prob,
-            RK4();
-            u0 = x,
-            p = ps,
-            adaptive = false,
-            saveat = Array(t),
-            dt = dt,
-            tspan = tspan,
-        ),
+    pred = solve(
+        prob,
+        Tsit5();
+        u0 = x,
+        p = ps,
+        adaptive = true,
+        saveat = Array(t),
+        tspan = tspan,
+        save_start = false,
     )
-    t = time() - t0
-    a = sum(abs2, y[griddims..., :, 1:(size(pred, 4)-1)] - pred[griddims..., :, 2:end])
-    b = sum(abs2, y[griddims..., :, 1:(size(pred, 4)-1)])
-    return mean(sqrt.(a) ./ sqrt.(b)), t
+    es = []
+    for tlim in tsave
+        a = sum(abs, y[inside..., :, 1:tlim] - pred[inside..., :, 1:tlim], dims = (1, 2, 3))
+        b = sum(abs, y[inside..., :, 1:tlim], dims = (1, 2, 3))
+        e = sum(a ./ b)/(tlim)
+        push!(es, e)
+    end
+    return es, time() - t0
+
 end

@@ -181,6 +181,7 @@ for key in keys(plot_labels)
                 color = colors_list[col_index]
 
                 data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
+                data_index_v = CartesianIndex(ig, ifil, 1, 4)  # projectorders = 1
 
                 if key == :prior_hist
                     plot_prior_traininghistory(
@@ -243,7 +244,7 @@ for key in keys(plot_labels)
                         outdir, closure_name, "epost.jld2"
                     )
                     bar_label, bar_position = plot_error(
-                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
+                        error_file, closure_name, nles, data_index_v, col_index, ax, color, PLOT_STYLES
                     )
                     append!(bar_positions, bar_position)
                     append!(bar_labels, bar_label)

@@ -19,12 +19,12 @@ params:
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.00005
 seeds:
-  dns: 123
+  dns: 1234
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "cnn_1"
+  name: "cnn"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]

@@ -1,5 +1,5 @@
 docreatedata: true
-docomp: true
+docomp: false
 ntrajectory: 8
 T: "Float32"
 params:
@@ -19,7 +19,7 @@ params:
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.0001
 seeds:
-  dns: 123
+  dns: 12345
   θ_start: 234
   prior: 345
   post: 456
@@ -39,7 +39,7 @@ closure:
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 1000
+  nepoch: 5000
   batchsize: 32
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   do_plot: false

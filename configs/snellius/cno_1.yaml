@@ -19,12 +19,12 @@ params:
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.00005
 seeds:
-  dns: 123
+  dns: 1234
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "cno_1"
+  name: "cno"
   type: cno
   size: 128
   cutoff: 10
