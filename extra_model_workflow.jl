@@ -486,7 +486,7 @@ let
 end
 
 let
-    tsave = [5,10,50,199]
+    tsave = [5,10,50,100,199]
     s = (length(params.nles), length(params.filters), length(projectorders))
     swt = (length(params.nles), length(params.filters), length(projectorders), length(tsave))
     epost = (;
@@ -495,6 +495,7 @@ let
         model_post = zeros(T, swt),
         model_t_post_inference = zeros(T, s),
         nomodel_t_post_inference = zeros(T, s),
+        nts = tsave
     )
     for (iorder, projectorder) in enumerate(projectorders),
         (ifil, Φ) in enumerate(params.filters),

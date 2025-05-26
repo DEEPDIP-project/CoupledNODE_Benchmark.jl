@@ -107,7 +107,8 @@ export _convert_to_single_index,
     plot_training_time,
     plot_inference_time,
     plot_num_parameters,
-    plot_error
+    plot_error,
+    plot_epost_vs_t
 
 export compute_eprior, compute_epost, compute_t_prior_inference
 
