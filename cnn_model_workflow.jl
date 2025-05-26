@@ -103,7 +103,6 @@ using NNlib
 using Optimisers
 using ParameterSchedulers
 using Random
-using SparseArrays
 
 
 # ## Random number seeds
@@ -350,7 +349,6 @@ let
         dns_seeds_train,
         dns_seeds_valid,
         nunroll = conf["posteriori"]["nunroll"],
-        nsamples = conf["posteriori"]["nsamples"],
         closure,
         closure_name,
         θ_start = θ_cnn_prior,
@@ -358,7 +356,6 @@ let
         opt = eval(Meta.parse(conf["posteriori"]["opt"])),
         nunroll_valid = conf["posteriori"]["nunroll_valid"],
         nepoch,
-        dt = eval(Meta.parse(conf["posteriori"]["dt"])),
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
         sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,

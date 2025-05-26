@@ -43,7 +43,6 @@ posteriori:
   projectorders: "(ProjectOrder.Last, )"
   nepoch: 100
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
-  nsamples: 5
   nunroll: 5
   nunroll_valid: 5
   do_plot: false
