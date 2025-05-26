@@ -1,3 +1,5 @@
+# The only parameter important here is ["closure"]["name"].
+# The rest of the parameters are used as boilerplate.
 docreatedata: true
 docomp: true
 ntrajectory: 8
@@ -17,43 +19,36 @@ params:
   bodyforce: "(dim, x, y, t) -> (dim == 1) * 5 * sinpi(8 * y)"
   issteadybodyforce: true
   processors: "(; log = timelogger(; nupdate=100))"
-  Δt: 0.00005
+  Δt: 0.0001
 seeds:
-  dns: 123456
+  dns: 123
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "cno"
-  type: cno
-  size: 128
-  cutoff: 10
+  name: "INS_ref"
+  type: cnn
+  radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
   activations:
-    [
-      "Lux.tanh_fast",
-      "Lux.tanh_fast",
-      "Lux.tanh_fast",
-      "Lux.tanh_fast",
-      "identity",
-    ]
-  down_factors: [2, 2, 2, 2, 2]
-  radii: [2, 2, 2, 2, 2]
+    ["tanh", "tanh", "tanh", "tanh", "identity"]
+    #activations: ["Lux.relu", "Lux.relu", "Lux.relu", "Lux.relu", "identity"]
+  use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 10000
-  batchsize: 64
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
+  nepoch: 1000
+  batchsize: 32
+  opt: "OptimiserChain(Adam(T(1.0e-2)), ClipGrad(1))"
   do_plot: false
   plot_train: false
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 200
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
-  nunroll: 5
-  nunroll_valid: 10
-  dt: T(5e-5)
+  nepoch: 100
+  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(1))"
+  nunroll: 3
+  nunroll_valid: 5
+  dt: T(1e-4)
   do_plot: false
   plot_train: false
