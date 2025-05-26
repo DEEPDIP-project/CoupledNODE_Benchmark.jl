@@ -491,7 +491,6 @@ let
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
         )
-        dt = T((data.t[2] - data.t[1])/5)
         tspan = (data.t[1], data.t[end])
 
         ## No model

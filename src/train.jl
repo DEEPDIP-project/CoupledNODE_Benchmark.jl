@@ -403,13 +403,24 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave)
         tspan = tspan,
         save_start = false,
     )
+
+    e = 0.0
     es = []
-    for tlim in tsave
-        a = sum(abs, y[inside..., :, 1:tlim] - pred[inside..., :, 1:tlim], dims = (1, 2, 3))
-        b = sum(abs, y[inside..., :, 1:tlim], dims = (1, 2, 3))
-        e = sum(a ./ b)/(tlim)
-        push!(es, e)
+
+    for it = 1:size(y, 4)
+        yref = y[inside..., :, it]
+        ypred = pred[inside..., :, it]
+
+        a = sum(abs2, ypred .- yref)
+        b = sum(abs2, yref)
+
+        e += sqrt(a) / sqrt(b)
+
+        if it in tsave
+            push!(es, e / (it - 1))
+        end
     end
+
     return es, time() - t0
 
 end
