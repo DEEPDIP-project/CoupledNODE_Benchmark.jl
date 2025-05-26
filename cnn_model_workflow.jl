@@ -103,7 +103,6 @@ using NNlib
 using Optimisers
 using ParameterSchedulers
 using Random
-using SparseArrays
 
 
 # ## Random number seeds
@@ -357,7 +356,6 @@ let
         opt = eval(Meta.parse(conf["posteriori"]["opt"])),
         nunroll_valid = conf["posteriori"]["nunroll_valid"],
         nepoch,
-        dt = eval(Meta.parse(conf["posteriori"]["dt"])),
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
         sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,
@@ -469,11 +467,13 @@ let
 end
 
 let
+    tsave = [5,10,50,199]
     s = (length(params.nles), length(params.filters), length(projectorders))
+    swt = (length(params.nles), length(params.filters), length(projectorders), length(tsave))
     epost = (;
-        nomodel = zeros(T, s),
-        model_prior = zeros(T, s),
-        model_post = zeros(T, s),
+        nomodel = zeros(T, swt),
+        model_prior = zeros(T, swt),
+        model_post = zeros(T, swt),
         model_t_post_inference = zeros(T, s),
     )
     for (iorder, projectorder) in enumerate(projectorders),
@@ -490,18 +490,23 @@ let
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
         )
-        dt = T(data.t[2] - data.t[1])
+        dt = T((data.t[2] - data.t[1])/5)
         tspan = (data.t[1], data.t[end])
 
         ## No model
-        dudt_nomod = NS.create_right_hand_side(
+        dudt_nomod = NS.create_right_hand_side_inplace(
             setup, psolver)
-        epost.nomodel[I], _ = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , dt, tspan, data, device)
+
+        epost.nomodel[I,:], _ = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , tspan, data, tsave)
+        @info "Epost nomodel" epost.nomodel[I,:]
         # with closure
-        dudt = NS.create_right_hand_side_with_closure(
+        dudt = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
-        epost.model_prior[I], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
-        epost.model_post[I], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , dt, tspan, data, device)
+        epost.model_prior[I, :], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave)
+        @info "Epost model_prior" epost.model_prior[I, :]
+        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , tspan, data, tsave)
+        @info "Epost model_post" epost.model_post[I, :]
+
         clean()
     end
     jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
@@ -518,6 +523,7 @@ epost = namedtupleload(joinpath(outdir_model, "epost.jld2"))
 CairoMakie.activate!()
 
 with_theme(; palette) do
+    return
     fig = Figure(; size = (800, 300))
     axes = []
     for (ifil, Φ) in enumerate(params.filters)
@@ -558,6 +564,7 @@ end
 CairoMakie.activate!()
 
 with_theme(; palette) do
+    return
     doplot() || return
     fig = Figure(; size = (800, 300))
     linestyles = [:solid, :dash]

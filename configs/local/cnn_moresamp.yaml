@@ -24,7 +24,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "cnn_1"
+  name: "cnn_moresamp"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -45,6 +45,5 @@ posteriori:
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   nunroll: 5
   nunroll_valid: 5
-  dt: T(1e-4)
   do_plot: false
   plot_train: false
