@@ -40,14 +40,14 @@ closure:
 priori:
   dotrain: true
   nepoch: 5000
-  batchsize: 32
+  batchsize: 64
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   do_plot: false
   plot_train: false
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 100
+  nepoch: 300
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   nunroll: 5
   nunroll_valid: 5

@@ -37,6 +37,7 @@ using JLD2  # for saving plots
 using IncompressibleNavierStokes  # for CPU()
 using NeuralClosure  # for models
 using CoupledNODE # for reading config
+using LaTeXStrings
 
 NS = Base.get_extension(CoupledNODE, :NavierStokes)
 
@@ -78,53 +79,58 @@ colors_list = [
 
 # Loop over plot types and configurations
 plot_labels = Dict(
-    :prior_hist => (
-        title  = "A-priori training history for different configurations",
-        xlabel = "Iteration",
-        ylabel = "A-priori error",
-    ),
-    :posteriori_hist => (
-        title  = "A-posteriori training history for different configurations",
-        xlabel = "Iteration",
-        ylabel = "DCF",
-    ),
-    :divergence => (
-        title  = "Divergence for different configurations",
-        xlabel = "t",
-        ylabel = "Face-average",
-    ),
-    :energy_evolution => (
-        title  = "Energy evolution for different configurations",
-        xlabel = "t",
-        ylabel = "E(t)",
-    ),
-    :energy_spectra => (
-        title  = "Energy spectra",
-    ),
-    :training_time => (
-        title  = "Training time for different configurations",
-        xlabel = "Model",
-        ylabel = "Training time (s)",
-    ),
-    :inference_time => (
-        title  = "Inference time for different configurations",
-        xlabel = "Model",
-        ylabel = "Inference time (s)",
-    ),
-    :num_parameters => (
-        title  = "Number of parameters for different configurations",
-        xlabel = "Model",
-        ylabel = "Number of parameters",
-    ),
-    :eprior => (
-        title  = "A-prior error for different configurations",
-        xlabel = "Model",
-        ylabel = "A-prior error",
-    ),
-    :epost => (
-        title  = "A-posteriori error for different configurations",
-        xlabel = "Model",
-        ylabel = "A-posteriori error",
+    #:prior_hist => (
+    #    title  = "A-priori training history for different configurations",
+    #    xlabel = "Iteration",
+    #    ylabel = "A-priori error",
+    #),
+    #:posteriori_hist => (
+    #    title  = "A-posteriori training history for different configurations",
+    #    xlabel = "Iteration",
+    #    ylabel = "DCF",
+    #),
+    #:divergence => (
+    #    title  = "Divergence for different configurations",
+    #    xlabel = "t",
+    #    ylabel = "Face-average",
+    #),
+    #:energy_evolution => (
+    #    title  = "Energy evolution for different configurations",
+    #    xlabel = "t",
+    #    ylabel = "E(t)",
+    #),
+    #:energy_spectra => (
+    #    title  = "Energy spectra",
+    #),
+    #:training_time => (
+    #    title  = "Training time for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "Training time (s)",
+    #),
+    #:inference_time => (
+    #    title  = "Inference time for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "Inference time (s)",
+    #),
+    #:num_parameters => (
+    #    title  = "Number of parameters for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "Number of parameters",
+    #),
+    #:eprior => (
+    #    title  = "A-prior error for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "A-prior error",
+    #),
+    #:epost => (
+    #    title  = "A-posteriori error for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "A-posteriori error",
+    #),
+    :epost_vs_t => (
+        title = "A-posteriori error as a function of time" * ", " * L"\frac{e_{M}(Nt)}{e_\text{no model}(Nt)}",
+        xlabel = "Nt",
+        ylabel = L"\frac{e_{M}(Nt)}{e_\text{no model}(Nt)}",
     ),
 )
 
@@ -181,7 +187,7 @@ for key in keys(plot_labels)
                 color = colors_list[col_index]
 
                 data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
-                data_index_v = CartesianIndex(ig, ifil, 1, 4)  # projectorders = 1
+                data_index_v = CartesianIndex(ig, ifil, 1, 5)
 
                 if key == :prior_hist
                     plot_prior_traininghistory(
@@ -248,6 +254,13 @@ for key in keys(plot_labels)
                     )
                     append!(bar_positions, bar_position)
                     append!(bar_labels, bar_label)
+                elseif key == :epost_vs_t
+                    error_file = joinpath(
+                        outdir, closure_name, "epost.jld2"
+                    )
+                    plot_epost_vs_t(
+                        error_file, closure_name, nles, ax, color, PLOT_STYLES
+                    )
                 end
             end
         end

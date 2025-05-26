@@ -455,14 +455,25 @@ function _convert_to_single_index(i, j, k, dimj, dimk)
     return (i - 1) * dimj * dimk + (j - 1) * dimk + k
 end
 
-function plot_training_time(outdir, closure_name, nles, Φ, projectorders, model_index, ax, color)
+function plot_training_time(
+    outdir,
+    closure_name,
+    nles,
+    Φ,
+    projectorders,
+    model_index,
+    ax,
+    color,
+)
     # Load prior data
     priortraining = loadprior(outdir, closure_name, [nles], [Φ])
     training_time_prior = priortraining[1].time_per_epoch
 
     # Load post data
     if closure_name == "INS_ref"
-        posttraining = namedtupleload(Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]))
+        posttraining = namedtupleload(
+            Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]),
+        )
         training_time_post = posttraining.single_stored_object.time_per_epoch
     else
         posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
@@ -543,7 +554,16 @@ function plot_num_parameters(outdir, closure_name, nles, Φ, model_index, ax, co
     )
 end
 
-function plot_error(error_file, closure_name, nles, data_index, model_index, ax, color, PLOT_STYLES)
+function plot_error(
+    error_file,
+    closure_name,
+    nles,
+    data_index,
+    model_index,
+    ax,
+    color,
+    PLOT_STYLES,
+)
     error_data = namedtupleload(error_file)
 
     # For all bars
@@ -594,4 +614,64 @@ function plot_error(error_file, closure_name, nles, data_index, model_index, ax,
     )
 
     return labels, labels_positions
+end
+
+
+function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
+    error_data = namedtupleload(error_file)
+
+    x = error_data.nts  # use time from error data
+
+    # Prior
+    y_prior = vec(error_data.model_prior ./ error_data.nomodel)
+    lines!(
+        ax,
+        x,
+        y_prior;
+        label = "$closure_name prior (n = $nles)",
+        color = color,
+        linestyle = PLOT_STYLES[:prior].linestyle,
+        linewidth = PLOT_STYLES[:prior].linewidth,
+    )
+
+    # Post
+    y_post = vec(error_data.model_post ./ error_data.nomodel)
+    lines!(
+        ax,
+        x,
+        y_post;
+        label = "$closure_name post (n = $nles)",
+        color = color,
+        linestyle = PLOT_STYLES[:post].linestyle,
+        linewidth = PLOT_STYLES[:post].linewidth,
+    )
+
+    # Smagorinsky (optional)
+    if haskey(error_data, Symbol("smag"))
+        y_smag = vec(error_data.smag ./ error_data.nomodel)
+        lines!(
+            ax,
+            x,
+            y_smag;
+            label = "$closure_name smag (n = $nles)",
+            color = PLOT_STYLES[:smag].color,
+            linestyle = PLOT_STYLES[:smag].linestyle,
+            linewidth = PLOT_STYLES[:smag].linewidth,
+        )
+    end
+
+    label = "No model"
+    if _missing_label(ax, label)  # add No closure only once
+        lines!(
+            ax,
+            x,
+            ones(length(x));
+            label = label,
+            linestyle = PLOT_STYLES[:no_closure].linestyle,
+            linewidth = PLOT_STYLES[:no_closure].linewidth,
+            color = PLOT_STYLES[:no_closure].color,
+        )
+    end
+
+    return nothing
 end
