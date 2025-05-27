@@ -293,8 +293,9 @@ function trainpost(;
             dudt_nn,
             griddims,
             inside;
+            dt = dt,
             ensemble = nsamples > 1,
-            sciml_solver = Tsit5(),
+            sciml_solver = RK4(),
             sensealg = sensealg,
         )
 
@@ -386,7 +387,7 @@ function compute_t_prior_inference(closure, θ, st, x, y, nreps = 1000)
 end
 
 
-function compute_epost(rhs, ps, tspan, (u, t), tsave)
+function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
     griddims = ((:) for _ = 1:(ndims(u)-2))
     inside = ((2:(size(u, 1)-1)) for _ = 1:(ndims(u)-2))
     x = u[griddims..., :, 1]
@@ -395,13 +396,14 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave)
     t0 = time()
     pred = solve(
         prob,
-        Tsit5();
+        RK4();
         u0 = x,
         p = ps,
-        adaptive = true,
+        adaptive = false,
         saveat = Array(t),
         tspan = tspan,
         save_start = false,
+        dt = dt,
     )
 
     e = 0.0

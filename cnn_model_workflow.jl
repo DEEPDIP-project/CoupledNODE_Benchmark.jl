@@ -349,6 +349,7 @@ let
         dns_seeds_train,
         dns_seeds_valid,
         nunroll = conf["posteriori"]["nunroll"],
+        dt = conf["posteriori"]["dt"],
         closure,
         closure_name,
         θ_start = θ_cnn_prior,
@@ -492,19 +493,20 @@ let
             t = sample.t[it],
         )
         tspan = (data.t[1], data.t[end])
+        dt = conf["posteriori"]["dt"]
 
         ## No model
         dudt_nomod = NS.create_right_hand_side_inplace(
             setup, psolver)
 
-        epost.nomodel[I,:], _ = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , tspan, data, tsave)
+        epost.nomodel[I,:], _ = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , tspan, data, tsave, dt)
         @info "Epost nomodel" epost.nomodel[I,:]
         # with closure
         dudt = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
-        epost.model_prior[I, :], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave)
+        epost.model_prior[I, :], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
         @info "Epost model_prior" epost.model_prior[I, :]
-        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , tspan, data, tsave)
+        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , tspan, data, tsave, dt)
         @info "Epost model_post" epost.model_post[I, :]
 
         clean()
