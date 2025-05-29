@@ -220,15 +220,15 @@ closure_INS, θ_INS = NeuralClosure.cnn(;
 # Give the CNN a test run
 # Note: Data and parameters are stored on the CPU, and
 # must be moved to the GPU before use (with `device`)
-let
-    @info "CNN warm up run"
-    using NeuralClosure.Zygote
-    u = randn(T, 32, 32, 2, 10) |> device
-    θ = θ_start |> device
-    closure(u, θ, st)
-    gradient(θ -> sum(closure(u, θ, st)[1]), θ)
-    clean()
-end
+#let
+#    @info "CNN warm up run"
+#    using NeuralClosure.Zygote
+#    u = randn(T, 32, 32, 2, 10) |> device
+#    θ = θ_start |> device
+#    closure(u, θ, st)
+#    gradient(θ -> sum(closure(u, θ, st)[1]), θ)
+#    clean()
+#end
 
 ########################################################################## #src
 
@@ -349,7 +349,8 @@ let
         dns_seeds_train,
         dns_seeds_valid,
         nunroll = conf["posteriori"]["nunroll"],
-        dt = conf["posteriori"]["dt"],
+        nsamples = conf["posteriori"]["nsamples"],
+        dt = T(conf["posteriori"]["dt"]),
         closure,
         closure_name,
         θ_start = θ_cnn_prior,
@@ -468,7 +469,8 @@ let
 end
 
 let
-    tsave = [5,10,50,100,199]
+    tsave = [5, 10, 25, 50, 100, 200, 500, 750, 1000]
+    tsave .-=1
     s = (length(params.nles), length(params.filters), length(projectorders))
     swt = (length(params.nles), length(params.filters), length(projectorders), length(tsave))
     epost = (;
@@ -476,7 +478,7 @@ let
         model_prior = zeros(T, swt),
         model_post = zeros(T, swt),
         model_t_post_inference = zeros(T, s),
-        nts = tsave,
+        nts = zeros(T, length(tsave)),
     )
     for (iorder, projectorder) in enumerate(projectorders),
         (ifil, Φ) in enumerate(params.filters),
@@ -492,8 +494,10 @@ let
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
         )
+        epost.nts[:] = [data.t[i] for i in tsave]
+        @info epost.nts
         tspan = (data.t[1], data.t[end])
-        dt = conf["posteriori"]["dt"]
+        dt = T(conf["posteriori"]["dt"])
 
         ## No model
         dudt_nomod = NS.create_right_hand_side_inplace(

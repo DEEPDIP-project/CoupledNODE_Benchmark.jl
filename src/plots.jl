@@ -623,11 +623,10 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
     x = error_data.nts  # use time from error data
 
     # Prior
-    y_prior = vec(error_data.model_prior ./ error_data.nomodel)
     lines!(
         ax,
         x,
-        y_prior;
+        vec(error_data.model_prior);
         label = "$closure_name prior (n = $nles)",
         color = color,
         linestyle = PLOT_STYLES[:prior].linestyle,
@@ -635,11 +634,10 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
     )
 
     # Post
-    y_post = vec(error_data.model_post ./ error_data.nomodel)
     lines!(
         ax,
         x,
-        y_post;
+        vec(error_data.model_post);
         label = "$closure_name post (n = $nles)",
         color = color,
         linestyle = PLOT_STYLES[:post].linestyle,
@@ -648,11 +646,10 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
 
     # Smagorinsky (optional)
     if haskey(error_data, Symbol("smag"))
-        y_smag = vec(error_data.smag ./ error_data.nomodel)
         lines!(
             ax,
             x,
-            y_smag;
+            vec(error_data.smag);
             label = "$closure_name smag (n = $nles)",
             color = PLOT_STYLES[:smag].color,
             linestyle = PLOT_STYLES[:smag].linestyle,
@@ -660,16 +657,31 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         )
     end
 
-    label = "No model"
+    if closure_name == "INS_ref"
+        label = "No model"
+        if _missing_label(ax, label)  # add No closure only once
+            lines!(
+                ax,
+                x,
+                vec(error_data.nomodel);
+                label = label,
+                linestyle = PLOT_STYLES[:no_closure].linestyle,
+                linewidth = PLOT_STYLES[:no_closure].linewidth,
+                color = PLOT_STYLES[:no_closure].color,
+            )
+        end
+    end
+
+    label = "No model (projected dyn)"
     if _missing_label(ax, label)  # add No closure only once
         lines!(
             ax,
             x,
-            ones(length(x));
+            vec(error_data.nomodel);
             label = label,
-            linestyle = PLOT_STYLES[:no_closure].linestyle,
-            linewidth = PLOT_STYLES[:no_closure].linewidth,
-            color = PLOT_STYLES[:no_closure].color,
+            linestyle = PLOT_STYLES[:no_closure_proj].linestyle,
+            linewidth = PLOT_STYLES[:no_closure_proj].linewidth,
+            color = PLOT_STYLES[:no_closure_proj].color,
         )
     end
 

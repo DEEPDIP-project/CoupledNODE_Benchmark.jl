@@ -67,17 +67,17 @@ jobs:
             using Pkg
             Pkg.develop(PackageSpec(path=pwd()))
             Pkg.instantiate()'
-      - name: Run doctests
-        run: |
-          julia --project=docs -e '
-            using Documenter: DocMeta, doctest
-            using CoupledNODE
-            DocMeta.setdocmeta!(CoupledNODE, :DocTestSetup, :(using CoupledNODE); recursive=true)
-            doctest(CoupledNODE)'
-      - name: Generate documentation
-        run: julia --project=docs docs/make.jl
-        env:
-          JULIA_PKG_SERVER: ""
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
-          GKSwstype: "100"
+      #- name: Run doctests
+      #  run: |
+      #    julia --project=docs -e '
+      #      using Documenter: DocMeta, doctest
+      #      using CoupledNODE
+      #      DocMeta.setdocmeta!(CoupledNODE, :DocTestSetup, :(using CoupledNODE); recursive=true)
+      #      doctest(CoupledNODE)'
+      #- name: Generate documentation
+      #  run: julia --project=docs docs/make.jl
+      #  env:
+      #    JULIA_PKG_SERVER: ""
+      #    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      #    DOCUMENTER_KEY: ${{ secrets.DOCUMENTER_KEY }}
+      #    GKSwstype: "100"

@@ -368,7 +368,8 @@ let
         dns_seeds_train,
         dns_seeds_valid,
         nunroll = conf["posteriori"]["nunroll"],
-        dt = conf["posteriori"]["dt"],
+        nsamples = conf["posteriori"]["nsamples"],
+        dt = T(conf["posteriori"]["dt"]),
         closure,
         closure_name,
         θ_start = θ_cnn_prior,
@@ -487,7 +488,8 @@ let
 end
 
 let
-    tsave = [5,10,50,100,199]
+    tsave = [5, 10, 25, 50, 100, 200, 500, 750, 1000]
+    tsave .-=1
     s = (length(params.nles), length(params.filters), length(projectorders))
     swt = (length(params.nles), length(params.filters), length(projectorders), length(tsave))
     epost = (;
@@ -496,7 +498,7 @@ let
         model_post = zeros(T, swt),
         model_t_post_inference = zeros(T, s),
         nomodel_t_post_inference = zeros(T, s),
-        nts = tsave
+        nts = zeros(T, length(tsave)),
     )
     for (iorder, projectorder) in enumerate(projectorders),
         (ifil, Φ) in enumerate(params.filters),
@@ -512,8 +514,10 @@ let
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
         )
+        epost.nts[:] = [data.t[i] for i in tsave]
+        @info epost.nts
         tspan = (data.t[1], data.t[end])
-        dt = conf["posteriori"]["dt"]
+        dt = T(conf["posteriori"]["dt"])
 
         ## No model
         dudt_nomod = NS.create_right_hand_side_inplace(
@@ -658,7 +662,7 @@ let
         θ_prior = device(θ_cnn_prior[ig, ifil])
         θ_post = device(θ_cnn_post[I])
 
-        dt = conf["posteriori"]["dt"]
+        dt = T(conf["posteriori"]["dt"])
         tspan = (sample.t[1], sample.t[end])
         dt_sample = T(0.05) # Sample every 0.05 seconds for the history (same as INS)
         tsave = (x*dt_sample for x in 1:(floor(Int, length(sample.t) / 0.05)+1))
@@ -672,10 +676,10 @@ let
         pred_prior =
                 solve(
                     prob_prior,
-                    RK4();
+                    Tsit5();
                     u0 = x,
                     p = θ_prior,
-                    adaptive = false,
+                    adaptive = true,
                     saveat = tsave,
                     dt = dt,
                     tspan = tspan,
@@ -686,10 +690,10 @@ let
         pred_post =
                 solve(
                     prob_post,
-                    RK4();
+                    Tsit5();
                     u0 = x,
                     p = θ_post,
-                    adaptive = false,
+                    adaptive = true,
                     saveat = tsave,
                     dt = dt,
                     tspan = tspan,
@@ -965,7 +969,7 @@ let
         θ_prior = device(θ_cnn_prior[I])
         θ_post = device(θ_cnn_post[I])
 
-        dt = conf["posteriori"]["dt"]
+        dt = T(conf["posteriori"]["dt"])
         tspan = (T(0), times[end]+T(1e-4))
 
         dudt = NS.create_right_hand_side_with_closure_inplace(
@@ -977,10 +981,10 @@ let
         pred_prior =
             solve(
                     prob_prior,
-                    RK4(),
+                    Tsit5(),
                     u0 = x,
                     p = θ_prior,
-                    adaptive = false,
+                    adaptive = true,
                     saveat = times,
                     tspan = tspan,
                     dt = dt,
@@ -989,10 +993,10 @@ let
         pred_post =
             solve(
                     prob_post,
-                    RK4(),
+                    Tsit5(),
                     u0 = x,
                     p = θ_post,
-                    adaptive = false,
+                    adaptive = true,
                     saveat = times,
                     tspan = tspan,
                     dt = dt,

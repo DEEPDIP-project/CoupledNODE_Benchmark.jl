@@ -61,6 +61,7 @@ end
 # Global variables for setting linestyle and colors in all plots
 PLOT_STYLES = Dict(
     :no_closure => (color="black", linestyle=:dash, linewidth=2),
+    :no_closure_proj => (color="red", linestyle=:dash, linewidth=2),
     :reference => (color="black", linestyle=:dot, linewidth=2),
     :prior => (color="black", linestyle=:solid, linewidth=1),
     :post => (color="black", linestyle=:dashdot, linewidth=1),
@@ -68,13 +69,28 @@ PLOT_STYLES = Dict(
     :smag => (color="darkgreen", linestyle=:dot, linewidth=1),
 )
 
-# Color list: if there are more models, add more colors here
-# colors black, cyan and lightgreen are reserved, see above!
-# Bright Red-Orange, Sky Blue, Deep Purple, Hot Pink,
-# Bright Green, Dark Blue, Violet, Teal
+# Color list: high-contrast, colorblind-friendly palette
 colors_list = [
-    "#ff3300", "#3399ff", "#9933cc", "#ff33cc",
-    "#33cc33", "#00008B", "#6600cc", "#00cc99"
+    "#E41A1C", # Red
+    "#377EB8", # Blue
+    "#4DAF4A", # Green
+    "#984EA3", # Purple
+    "#FF7F00", # Orange
+    "#A65628", # Brown
+    "#F781BF", # Pink
+    "#999999", # Grey
+    "#FFD700", # Gold
+    "#00CED1", # Dark Turquoise
+    "#1E90FF", # Dodger Blue
+    "#228B22", # Forest Green
+    "#D2691E", # Chocolate
+    "#DC143C", # Crimson
+    "#8B008B", # Dark Magenta
+    "#FF1493", # Deep Pink
+    "#00FF7F", # Spring Green
+    "#4682B4", # Steel Blue
+    "#B22222", # Firebrick
+    "#20B2AA", # Light Sea Green
 ]
 
 # Loop over plot types and configurations
@@ -128,9 +144,9 @@ plot_labels = Dict(
         ylabel = "A-posteriori error",
     ),
     :epost_vs_t => (
-        title = "A-posteriori error as a function of time" * ", " * L"\frac{e_{M}(Nt)}{e_\text{no model}(Nt)}",
-        xlabel = "Nt",
-        ylabel = L"\frac{e_{M}(Nt)}{e_\text{no model}(Nt)}",
+        title = "A-posteriori error as a function of time",
+        xlabel = "t",
+        ylabel = L"e_{M}(t)",
     ),
 )
 
