@@ -3,6 +3,15 @@ function getdatafile(outdir, nles, filter, seed)
     joinpath(outdir, "data", splatfileparts(; seed = repr(seed), filter, nles) * ".jld2")
 end
 
+function load_data_set(outdir, nles, Φ, seeds)
+    data = []
+    for s in seeds
+        data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
+        push!(data, data_i)
+    end
+    return data
+end
+
 function createdata(; params, seed, outdir, backend)
     for (nles, Φ) in Iterators.product(params.nles, params.filters)
 
@@ -16,7 +25,8 @@ function createdata(; params, seed, outdir, backend)
         end
         @info "Creating data for" nles Φ seed
 
-        data = NS.create_les_data_projected(;
+        data = NS.create_les_data_projected(
+            nchunks = 500;
             params...,
             rng = Xoshiro(seed),
             backend = backend,
@@ -89,19 +99,12 @@ function trainprior(;
             push!(setup, Setup(; x = x, Re = params.Re))
         end
 
-        # Read the data in the format expected by the CoupledNODE
-        data_train = []
-        for s in dns_seeds_train
-            data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
-            # If you are using INS data, then you have to do hcat(data_i) before pushing
-            push!(data_train, data_i)
-        end
-        data_valid = []
-        for s in dns_seeds_valid
-            data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
-            push!(data_valid, data_i)
-        end
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
+
+        # Read the data in the format expected by the CoupledNODE
+        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train)
+        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid)
+
         @assert length(nles) == 1 "Only one nles for a-priori training"
         io_train = NS.create_io_arrays_priori(data_train, setup[1], device)
         io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device)
@@ -262,17 +265,8 @@ function trainpost(;
         end
 
         # Read the data in the format expected by the CoupledNODE
-        data_train = []
-        for s in dns_seeds_train
-            data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
-            push!(data_train, data_i)
-        end
-
-        data_valid = []
-        for s in dns_seeds_valid
-            data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
-            push!(data_valid, data_i)
-        end
+        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train)
+        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid)
 
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
         io_train = NS.create_io_arrays_posteriori(data_train, setup[1], device)
@@ -292,7 +286,8 @@ function trainpost(;
         loss = CoupledNODE.create_loss_post_lux(
             dudt_nn,
             griddims,
-            inside;
+            inside,
+            dt;
             ensemble = nsamples > 1,
             sciml_solver = Tsit5(),
             sensealg = sensealg,
@@ -386,7 +381,7 @@ function compute_t_prior_inference(closure, θ, st, x, y, nreps = 1000)
 end
 
 
-function compute_epost(rhs, ps, tspan, (u, t), tsave)
+function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
     griddims = ((:) for _ = 1:(ndims(u)-2))
     inside = ((2:(size(u, 1)-1)) for _ = 1:(ndims(u)-2))
     x = u[griddims..., :, 1]
@@ -402,6 +397,7 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave)
         saveat = Array(t),
         tspan = tspan,
         save_start = false,
+        dt = dt,
     )
 
     e = 0.0
