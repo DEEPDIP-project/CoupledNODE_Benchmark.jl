@@ -623,7 +623,7 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
     x = error_data.nts  # use time from error data
 
     # Prior
-    lines!(
+    scatterlines!(
         ax,
         x,
         vec(error_data.model_prior);
@@ -631,10 +631,11 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         color = color,
         linestyle = PLOT_STYLES[:prior].linestyle,
         linewidth = PLOT_STYLES[:prior].linewidth,
+        marker = :circle,
     )
 
     # Post
-    lines!(
+    scatterlines!(
         ax,
         x,
         vec(error_data.model_post);
@@ -642,11 +643,12 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         color = color,
         linestyle = PLOT_STYLES[:post].linestyle,
         linewidth = PLOT_STYLES[:post].linewidth,
+        marker = :circle,
     )
 
     # Smagorinsky (optional)
     if haskey(error_data, Symbol("smag"))
-        lines!(
+        scatterlines!(
             ax,
             x,
             vec(error_data.smag);
@@ -654,13 +656,14 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
             color = PLOT_STYLES[:smag].color,
             linestyle = PLOT_STYLES[:smag].linestyle,
             linewidth = PLOT_STYLES[:smag].linewidth,
+            marker = :circle,
         )
     end
 
     if closure_name == "INS_ref"
         label = "No model"
         if _missing_label(ax, label)  # add No closure only once
-            lines!(
+            scatterlines!(
                 ax,
                 x,
                 vec(error_data.nomodel);
@@ -668,13 +671,14 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
                 linestyle = PLOT_STYLES[:no_closure].linestyle,
                 linewidth = PLOT_STYLES[:no_closure].linewidth,
                 color = PLOT_STYLES[:no_closure].color,
+                marker = :circle,
             )
         end
     end
 
     label = "No model (projected dyn)"
     if _missing_label(ax, label)  # add No closure only once
-        lines!(
+        scatterlines!(
             ax,
             x,
             vec(error_data.nomodel);
@@ -682,6 +686,7 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
             linestyle = PLOT_STYLES[:no_closure_proj].linestyle,
             linewidth = PLOT_STYLES[:no_closure_proj].linewidth,
             color = PLOT_STYLES[:no_closure_proj].color,
+            marker = :circle,
         )
     end
 
