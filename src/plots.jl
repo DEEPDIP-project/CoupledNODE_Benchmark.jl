@@ -192,12 +192,7 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
 end
 
 function _plot_histogram(ax, data, color, linestyle, linewidth)
-    hist_data = hist!(
-        ax,
-        [p[2] for p in data];
-        bins = 10,
-        color = (:transparent, 0.0),
-    )
+    hist_data = hist!(ax, [p[2] for p in data]; bins = 10, color = (:transparent, 0.0))
     centers = hist_data.plots[1][1][]
     lines!(
         ax,
@@ -586,7 +581,16 @@ function plot_num_parameters(outdir, closure_name, nles, Φ, model_index, ax, co
     )
 end
 
-function plot_error(error_file, closure_name, nles, data_index, model_index, ax, color, PLOT_STYLES)
+function plot_error(
+    error_file,
+    closure_name,
+    nles,
+    data_index,
+    model_index,
+    ax,
+    color,
+    PLOT_STYLES,
+)
     error_data = namedtupleload(error_file)
 
     # For all bars
