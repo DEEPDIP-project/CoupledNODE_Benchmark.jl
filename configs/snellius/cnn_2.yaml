@@ -24,7 +24,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "cnn_project"
+  name: "cnn_remove"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -32,6 +32,7 @@ closure:
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
+  reuse: "cnn_project"
   dotrain: true
   nepoch: 10000
   batchsize: 64

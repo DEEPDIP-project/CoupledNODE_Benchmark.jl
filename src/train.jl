@@ -26,7 +26,7 @@ function createdata(; params, seed, outdir, backend)
         @info "Creating data for" nles Φ seed
 
         data = NS.create_les_data_projected(
-            nchunks = 500;
+            nchunks = 8000;
             params...,
             rng = Xoshiro(seed),
             backend = backend,
@@ -42,6 +42,22 @@ function getpriorfile(outdir, closure_name, nles, filter)
         closure_name,
         splatfileparts(; filter, nles) * ".jld2",
     )
+end
+
+function reusepriorfile(reuse, outdir, closure_name)
+    reusepath = joinpath(outdir, "priortraining", reuse)
+    targetpath = joinpath(outdir, "priortraining", closure_name)
+    # If the reuse path exists, copy it to the target path
+    if ispath(reusepath)
+        @info "Reusing prior training from $(reusepath) to $(targetpath)"
+        ispath(targetpath) || mkpath(targetpath)
+        for file in readdir(reusepath, join = true)
+            @info "Copying prior training file $(file) to $(targetpath)"
+            cp(file, joinpath(targetpath, basename(file)); force = true)
+        end
+    else
+        @warn "Reuse path $(reusepath) does not exist. Not reusing prior training."
+    end
 end
 
 "Load a-priori training results from correct file names."
@@ -104,7 +120,6 @@ function trainprior(;
         # Read the data in the format expected by the CoupledNODE
         data_train = load_data_set(outdir, nles, Φ, dns_seeds_train)
         data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid)
-
         @assert length(nles) == 1 "Only one nles for a-priori training"
         io_train = NS.create_io_arrays_priori(data_train, setup[1], device)
         io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device)

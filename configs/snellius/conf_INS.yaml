@@ -12,7 +12,7 @@ params:
   tsim: 5.0
   savefreq: 50
   ndns: 4096
-  nles: [128]
+  nles: [64]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
   method: "RKMethods.Wray3(; T)"
