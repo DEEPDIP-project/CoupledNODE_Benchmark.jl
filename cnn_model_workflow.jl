@@ -176,6 +176,7 @@ end
 
 # Computational time
 docomp = conf["docomp"]
+docomp = false
 docomp && let
     comptime, datasize = 0.0, 0.0
     for seed in dns_seeds
@@ -240,6 +241,13 @@ closure_INS, θ_INS = NeuralClosure.cnn(;
 # Use the same batch selection random seed for each training setup.
 # Save parameters to disk after each run.
 # Plot training progress (for a validation data batch).
+
+# Check if it is asked to re-use the a-priori training from a different model
+if haskey(conf["priori"], "reuse")
+    reuse = conf["priori"]["reuse"]
+    @info "Reuse a-priori training from closure named: $reuse"
+    reusepriorfile(reuse, outdir, closure_name)
+end
 
 # Train
 for i = 1:ntrajectory

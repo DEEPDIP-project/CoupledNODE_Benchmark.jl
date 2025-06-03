@@ -11,6 +11,7 @@ end
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
 confdir = joinpath(basedir, "configs/local")
+confdir = joinpath(basedir, "configs/snellius")
 @warn "Using configuration files from $confdir"
 compdir = joinpath(outdir, "comparison")
 ispath(compdir) || mkpath(compdir)
@@ -63,6 +64,7 @@ PLOT_STYLES = Dict(
     :no_closure => (color="black", linestyle=:dash, linewidth=2),
     :no_closure_proj => (color="red", linestyle=:dash, linewidth=2),
     :reference => (color="black", linestyle=:dot, linewidth=2),
+    :reference_proj => (color="red", linestyle=:dot, linewidth=2),
     :prior => (color="black", linestyle=:solid, linewidth=1),
     :post => (color="black", linestyle=:dashdot, linewidth=1),
     :inertia => (color="cyan", linestyle=:dot, linewidth=1),
@@ -289,6 +291,12 @@ for key in keys(plot_labels)
     # Add xticks in barplot
     if key in (:training_time, :inference_time, :num_parameters, :eprior, :epost)
         ax.xticks = (bar_positions, bar_labels)
+    end
+
+    # Set log-log scale
+    if key == :epost_vs_t
+        ax.xscale = log10
+        ax.yscale = log10
     end
 
     # Display and save the figure

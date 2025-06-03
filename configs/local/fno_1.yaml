@@ -1,5 +1,5 @@
 docreatedata: true
-docomp: true
+docomp: false
 ntrajectory: 8
 T: "Float32"
 params:
@@ -7,33 +7,32 @@ params:
   lims: [0.0, 1.0]
   Re: 6000.0
   tburn: 0.5
-  tsim: 5.0
-  savefreq: 50
-  ndns: 4096
-  nles: [64]
+  tsim: 2.0
+  savefreq: 100
+  ndns: 1024
+  nles: [32]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
   method: "RKMethods.Wray3(; T)"
   bodyforce: "(dim, x, y, t) -> (dim == 1) * 5 * sinpi(8 * y)"
   issteadybodyforce: true
   processors: "(; log = timelogger(; nupdate=100))"
-  Δt: 0.00005
+  Δt: 0.0001
 seeds:
-  dns: 123456
+  dns: 12345
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "cnn_project"
-  type: cnn
-  radii: [2, 2, 2, 2, 2]
-  channels: [24, 24, 24, 24, 2]
-  activations: ["tanh", "tanh", "tanh", "tanh", "identity"]
-  use_bias: [true, true, true, true, false]
+  name: "fno_1"
+  type: fno
+  channels: [2, 64, 64, 64, 2]
+  modes: [16, 16]
+  activation: "Lux.gelu"
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 10000
+  nepoch: 5000
   batchsize: 64
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   do_plot: false
@@ -42,10 +41,9 @@ posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
   nepoch: 300
-  opt: "OptimiserChain(Adam(T(1.0e-4)), ClipGrad(0.01))"
+  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   nunroll: 5
-  nunroll_valid: 10
-  nsamples: 1
-  dt: 0.0001
+  nunroll_valid: 5
+  dt: T(1e-4)
   do_plot: false
   plot_train: false

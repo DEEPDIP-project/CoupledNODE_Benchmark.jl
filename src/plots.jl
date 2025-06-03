@@ -210,29 +210,55 @@ function plot_energy_evolution(
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
     # add No closure only once
-    label = "No closure (n = $nles)"
-    if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
-        lines!(
-            ax,
-            energyhistory.nomodel[data_index];
-            label = label,
-            linestyle = PLOT_STYLES[:no_closure].linestyle,
-            linewidth = PLOT_STYLES[:no_closure].linewidth,
-            color = PLOT_STYLES[:no_closure].color,
-        )
+    if closure_name == "INS_ref"
+        label = "No closure "
+        if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
+            lines!(
+                ax,
+                energyhistory.nomodel[data_index];
+                label = label,
+                linestyle = PLOT_STYLES[:no_closure].linestyle,
+                linewidth = PLOT_STYLES[:no_closure].linewidth,
+                color = PLOT_STYLES[:no_closure].color,
+            )
+        end
+        # add reference only once
+        label = "Reference"
+        if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
+            lines!(
+                ax,
+                energyhistory.ref[data_index];
+                color = PLOT_STYLES[:reference].color,
+                linestyle = PLOT_STYLES[:reference].linestyle,
+                linewidth = PLOT_STYLES[:reference].linewidth,
+                label = label,
+            )
+        end
     end
 
-    # add reference only once
-    label = "Reference"
-    if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
-        lines!(
-            ax,
-            energyhistory.ref[data_index];
-            color = PLOT_STYLES[:reference].color,
-            linestyle = PLOT_STYLES[:reference].linestyle,
-            linewidth = PLOT_STYLES[:reference].linewidth,
-            label = label,
-        )
+    if closure_name == "cnn_1"
+        label = "No closure (projected dyn)"
+        if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
+            lines!(
+                ax,
+                energyhistory.nomodel[data_index];
+                label = label,
+                linestyle = PLOT_STYLES[:no_closure_proj].linestyle,
+                linewidth = PLOT_STYLES[:no_closure_proj].linewidth,
+                color = PLOT_STYLES[:no_closure_proj].color,
+            )
+        end
+        label = "Reference (projected dyn)"
+        if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
+            lines!(
+                ax,
+                energyhistory.ref[data_index];
+                color = PLOT_STYLES[:reference_proj].color,
+                linestyle = PLOT_STYLES[:reference_proj].linestyle,
+                linewidth = PLOT_STYLES[:reference_proj].linewidth,
+                label = label,
+            )
+        end
     end
 
     if haskey(energyhistory, Symbol("smag"))
@@ -623,7 +649,7 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
     x = error_data.nts  # use time from error data
 
     # Prior
-    lines!(
+    scatterlines!(
         ax,
         x,
         vec(error_data.model_prior);
@@ -631,10 +657,11 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         color = color,
         linestyle = PLOT_STYLES[:prior].linestyle,
         linewidth = PLOT_STYLES[:prior].linewidth,
+        marker = :circle,
     )
 
     # Post
-    lines!(
+    scatterlines!(
         ax,
         x,
         vec(error_data.model_post);
@@ -642,11 +669,12 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         color = color,
         linestyle = PLOT_STYLES[:post].linestyle,
         linewidth = PLOT_STYLES[:post].linewidth,
+        marker = :circle,
     )
 
     # Smagorinsky (optional)
     if haskey(error_data, Symbol("smag"))
-        lines!(
+        scatterlines!(
             ax,
             x,
             vec(error_data.smag);
@@ -654,13 +682,14 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
             color = PLOT_STYLES[:smag].color,
             linestyle = PLOT_STYLES[:smag].linestyle,
             linewidth = PLOT_STYLES[:smag].linewidth,
+            marker = :circle,
         )
     end
 
     if closure_name == "INS_ref"
         label = "No model"
         if _missing_label(ax, label)  # add No closure only once
-            lines!(
+            scatterlines!(
                 ax,
                 x,
                 vec(error_data.nomodel);
@@ -668,21 +697,25 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
                 linestyle = PLOT_STYLES[:no_closure].linestyle,
                 linewidth = PLOT_STYLES[:no_closure].linewidth,
                 color = PLOT_STYLES[:no_closure].color,
+                marker = :circle,
             )
         end
     end
 
-    label = "No model (projected dyn)"
-    if _missing_label(ax, label)  # add No closure only once
-        lines!(
-            ax,
-            x,
-            vec(error_data.nomodel);
-            label = label,
-            linestyle = PLOT_STYLES[:no_closure_proj].linestyle,
-            linewidth = PLOT_STYLES[:no_closure_proj].linewidth,
-            color = PLOT_STYLES[:no_closure_proj].color,
-        )
+    if closure_name == "cnn_INS"
+        label = "No model (projected dyn)"
+        if _missing_label(ax, label)  # add No closure only once
+            scatterlines!(
+                ax,
+                x,
+                vec(error_data.nomodel);
+                label = label,
+                linestyle = PLOT_STYLES[:no_closure_proj].linestyle,
+                linewidth = PLOT_STYLES[:no_closure_proj].linewidth,
+                color = PLOT_STYLES[:no_closure_proj].color,
+                marker = :circle,
+            )
+        end
     end
 
     return nothing
