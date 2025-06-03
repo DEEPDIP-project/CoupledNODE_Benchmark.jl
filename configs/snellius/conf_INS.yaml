@@ -1,3 +1,5 @@
+# The only parameter important here is ["closure"]["name"].
+# The rest of the parameters are used as boilerplate.
 docreatedata: true
 docomp: true
 ntrajectory: 8
@@ -7,10 +9,10 @@ params:
   lims: [0.0, 1.0]
   Re: 6000.0
   tburn: 0.5
-  tsim: 2.0
-  savefreq: 100
-  ndns: 64
-  nles: [32]
+  tsim: 5.0
+  savefreq: 50
+  ndns: 4096
+  nles: [64]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
   method: "RKMethods.Wray3(; T)"
@@ -24,33 +26,29 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "attcnn_2"
-  type: attentioncnn
-  radii: [2, 2]
-  channels: [24, 2]
-  activations: ["relu", "identity"]
-  use_bias: [true, false]
-  use_attention: [true, false]
-  emb_sizes: [124, 124]
-  Ns: [40, 36]
-  patch_sizes: [8, 6]
-  n_heads: [4, 4]
-  sum_attention: [false, false]
+  name: "INS_ref"
+  type: cnn
+  radii: [2, 2, 2, 2, 2]
+  channels: [24, 24, 24, 24, 2]
+  activations:
+    ["tanh", "tanh", "tanh", "tanh", "identity"]
+    #activations: ["Lux.relu", "Lux.relu", "Lux.relu", "Lux.relu", "identity"]
+  use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
   nepoch: 1000
   batchsize: 32
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
+  opt: "OptimiserChain(Adam(T(1.0e-2)), ClipGrad(1))"
   do_plot: false
   plot_train: false
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 10
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
-  nunroll: 2
-  nunroll_valid: 3
+  nepoch: 100
+  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(1))"
+  nunroll: 3
+  nunroll_valid: 5
   dt: T(1e-4)
   do_plot: false
   plot_train: false

@@ -1,5 +1,5 @@
 docreatedata: true
-docomp: true
+docomp: false
 ntrajectory: 8
 T: "Float32"
 params:
@@ -7,9 +7,9 @@ params:
   lims: [0.0, 1.0]
   Re: 6000.0
   tburn: 0.5
-  tsim: 2.0
-  savefreq: 100
-  ndns: 64
+  tsim: 5.0
+  savefreq: 50
+  ndns: 1024
   nles: [32]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
@@ -19,7 +19,7 @@ params:
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.0001
 seeds:
-  dns: 123
+  dns: 12345
   θ_start: 234
   prior: 345
   post: 456
@@ -28,25 +28,24 @@ closure:
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
-  activations:
-    ["tanh", "tanh", "tanh", "tanh", "identity"]
-    #activations: ["Lux.relu", "Lux.relu", "Lux.relu", "Lux.relu", "identity"]
+  activations: ["tanh", "tanh", "tanh", "tanh", "identity"]
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 1000
-  batchsize: 32
-  opt: "OptimiserChain(Adam(T(1.0e-2)), ClipGrad(1))"
+  nepoch: 3000
+  batchsize: 64
+  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   do_plot: false
   plot_train: false
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 10
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(1))"
-  nunroll: 2
-  nunroll_valid: 3
-  dt: T(1e-4)
+  nepoch: 100
+  opt: "OptimiserChain(Adam(T(1.0e-4)), ClipGrad(0.01))"
+  nunroll: 5
+  nunroll_valid: 5
+  dt: 0.0001
+  nsamples: 1
   do_plot: false
   plot_train: false

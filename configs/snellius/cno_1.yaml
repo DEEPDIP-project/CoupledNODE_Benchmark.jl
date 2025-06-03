@@ -19,17 +19,24 @@ params:
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.00005
 seeds:
-  dns: 123
+  dns: 123456
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "cno_1"
+  name: "cno"
   type: cno
   size: 128
   cutoff: 10
   channels: [24, 24, 24, 24, 2]
-  activations: ["relu", "relu", "relu", "relu", "identity"]
+  activations:
+    [
+      "Lux.tanh_fast",
+      "Lux.tanh_fast",
+      "Lux.tanh_fast",
+      "Lux.tanh_fast",
+      "identity",
+    ]
   down_factors: [2, 2, 2, 2, 2]
   radii: [2, 2, 2, 2, 2]
   rng: "Xoshiro(seeds.θ_start)"
@@ -43,7 +50,7 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 500
+  nepoch: 200
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   nunroll: 5
   nunroll_valid: 10

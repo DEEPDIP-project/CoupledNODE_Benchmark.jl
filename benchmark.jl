@@ -11,6 +11,7 @@ end
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
 confdir = joinpath(basedir, "configs/local")
+#confdir = joinpath(basedir, "configs/snellius")
 @warn "Using configuration files from $confdir"
 compdir = joinpath(outdir, "comparison")
 ispath(compdir) || mkpath(compdir)
@@ -37,6 +38,7 @@ using JLD2  # for saving plots
 using IncompressibleNavierStokes  # for CPU()
 using NeuralClosure  # for models
 using CoupledNODE # for reading config
+using LaTeXStrings
 
 NS = Base.get_extension(CoupledNODE, :NavierStokes)
 
@@ -60,20 +62,37 @@ end
 # Global variables for setting linestyle and colors in all plots
 PLOT_STYLES = Dict(
     :no_closure => (color="black", linestyle=:dash, linewidth=2),
+    :no_closure_proj => (color="red", linestyle=:dash, linewidth=2),
     :reference => (color="black", linestyle=:dot, linewidth=2),
+    :reference_proj => (color="red", linestyle=:dot, linewidth=2),
     :prior => (color="black", linestyle=:solid, linewidth=1),
     :post => (color="black", linestyle=:dashdot, linewidth=1),
     :inertia => (color="cyan", linestyle=:dot, linewidth=1),
     :smag => (color="darkgreen", linestyle=:dot, linewidth=1),
 )
 
-# Color list: if there are more models, add more colors here
-# colors black, cyan and lightgreen are reserved, see above!
-# Bright Red-Orange, Sky Blue, Deep Purple, Hot Pink,
-# Bright Green, Dark Blue, Violet, Teal
+# Color list: high-contrast, colorblind-friendly palette
 colors_list = [
-    "#ff3300", "#3399ff", "#9933cc", "#ff33cc",
-    "#33cc33", "#00008B", "#6600cc", "#00cc99"
+    "#E41A1C", # Red
+    "#377EB8", # Blue
+    "#4DAF4A", # Green
+    "#984EA3", # Purple
+    "#FF7F00", # Orange
+    "#A65628", # Brown
+    "#F781BF", # Pink
+    "#999999", # Grey
+    "#FFD700", # Gold
+    "#00CED1", # Dark Turquoise
+    "#1E90FF", # Dodger Blue
+    "#228B22", # Forest Green
+    "#D2691E", # Chocolate
+    "#DC143C", # Crimson
+    "#8B008B", # Dark Magenta
+    "#FF1493", # Deep Pink
+    "#00FF7F", # Spring Green
+    "#4682B4", # Steel Blue
+    "#B22222", # Firebrick
+    "#20B2AA", # Light Sea Green
 ]
 
 # Loop over plot types and configurations
@@ -102,15 +121,15 @@ plot_labels = Dict(
     :energy_spectra => (
         title  = "Energy spectra",
     ),
-    :prior_time => (
-        title  = "A-priori time for different configurations",
+    :training_time => (
+        title  = "Training time for different configurations",
         xlabel = "Model",
         ylabel = "Training time (s)",
     ),
-    :posteriori_time => (
-        title  = "A-posteriori time for different configurations",
+    :inference_time => (
+        title  = "Inference time for different configurations",
         xlabel = "Model",
-        ylabel = "Training time (s)",
+        ylabel = "Inference time (s)",
     ),
     :num_parameters => (
         title  = "Number of parameters for different configurations",
@@ -126,6 +145,11 @@ plot_labels = Dict(
         title  = "A-posteriori error for different configurations",
         xlabel = "Model",
         ylabel = "A-posteriori error",
+    ),
+    :epost_vs_t => (
+        title = "A-posteriori error as a function of time",
+        xlabel = "t",
+        ylabel = L"e_{M}(t)",
     ),
 )
 
@@ -204,6 +228,7 @@ for key in keys(plot_labels)
                 color = colors_list[col_index]
 
                 data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
+                data_index_v = CartesianIndex(ig, ifil, 1, 5)
 
                 if key == :prior_hist
                     plot_prior_traininghistory(
@@ -233,19 +258,19 @@ for key in keys(plot_labels)
                         num_of_models, color, PLOT_STYLES
                     )
 
-                elseif key == :prior_time
-                    plot_prior_time(
-                        outdir, closure_name, nles, Φ, col_index, ax, color
-                    )
-                    push!(bar_positions, col_index)
-                    push!(bar_labels, "$closure_name")
-                elseif key == :posteriori_time
+                elseif key == :training_time
                     projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-                    plot_posteriori_time(
+                    bar_label, bar_position = plot_training_time(
                         outdir, closure_name, nles, Φ, projectorders, col_index, ax, color
                     )
-                    push!(bar_positions, col_index)
-                    push!(bar_labels, "$closure_name")
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
+                elseif key == :inference_time
+                    bar_label, bar_position = plot_inference_time(
+                        outdir, closure_name, nles, data_index, col_index, ax, color
+                    )
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
                 elseif key == :num_parameters
                     plot_num_parameters(
                         outdir, closure_name, nles, Φ, col_index, ax, color
@@ -266,10 +291,17 @@ for key in keys(plot_labels)
                         outdir, closure_name, "epost.jld2"
                     )
                     bar_label, bar_position = plot_error(
-                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
+                        error_file, closure_name, nles, data_index_v, col_index, ax, color, PLOT_STYLES
                     )
                     append!(bar_positions, bar_position)
                     append!(bar_labels, bar_label)
+                elseif key == :epost_vs_t
+                    error_file = joinpath(
+                        outdir, closure_name, "epost.jld2"
+                    )
+                    plot_epost_vs_t(
+                        error_file, closure_name, nles, ax, color, PLOT_STYLES
+                    )
                 end
             end
         end
@@ -280,8 +312,14 @@ for key in keys(plot_labels)
     end
 
     # Add xticks in barplot
-    if key == :prior_time || key == :posteriori_time || key == :num_parameters || key == :eprior || key == :epost
+    if key in (:training_time, :inference_time, :num_parameters, :eprior, :epost)
         ax.xticks = (bar_positions, bar_labels)
+    end
+
+    # Set log-log scale
+    if key == :epost_vs_t
+        ax.xscale = log10
+        ax.yscale = log10
     end
 
     # Display and save the figure

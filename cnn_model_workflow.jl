@@ -103,7 +103,6 @@ using NNlib
 using Optimisers
 using ParameterSchedulers
 using Random
-using SparseArrays
 
 
 # ## Random number seeds
@@ -177,6 +176,7 @@ end
 
 # Computational time
 docomp = conf["docomp"]
+docomp = false
 docomp && let
     comptime, datasize = 0.0, 0.0
     for seed in dns_seeds
@@ -221,15 +221,15 @@ closure_INS, θ_INS = NeuralClosure.cnn(;
 # Give the CNN a test run
 # Note: Data and parameters are stored on the CPU, and
 # must be moved to the GPU before use (with `device`)
-let
-    @info "CNN warm up run"
-    using NeuralClosure.Zygote
-    u = randn(T, 32, 32, 2, 10) |> device
-    θ = θ_start |> device
-    closure(u, θ, st)
-    gradient(θ -> sum(closure(u, θ, st)[1]), θ)
-    clean()
-end
+#let
+#    @info "CNN warm up run"
+#    using NeuralClosure.Zygote
+#    u = randn(T, 32, 32, 2, 10) |> device
+#    θ = θ_start |> device
+#    closure(u, θ, st)
+#    gradient(θ -> sum(closure(u, θ, st)[1]), θ)
+#    clean()
+#end
 
 ########################################################################## #src
 
@@ -241,6 +241,13 @@ end
 # Use the same batch selection random seed for each training setup.
 # Save parameters to disk after each run.
 # Plot training progress (for a validation data batch).
+
+# Check if it is asked to re-use the a-priori training from a different model
+if haskey(conf["priori"], "reuse")
+    reuse = conf["priori"]["reuse"]
+    @info "Reuse a-priori training from closure named: $reuse"
+    reusepriorfile(reuse, outdir, closure_name)
+end
 
 # Train
 for i = 1:ntrajectory
@@ -350,6 +357,8 @@ let
         dns_seeds_train,
         dns_seeds_valid,
         nunroll = conf["posteriori"]["nunroll"],
+        nsamples = conf["posteriori"]["nsamples"],
+        dt = T(conf["posteriori"]["dt"]),
         closure,
         closure_name,
         θ_start = θ_cnn_prior,
@@ -357,9 +366,9 @@ let
         opt = eval(Meta.parse(conf["posteriori"]["opt"])),
         nunroll_valid = conf["posteriori"]["nunroll_valid"],
         nepoch,
-        dt = eval(Meta.parse(conf["posteriori"]["dt"])),
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
+        sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,
     )
 end
 end
@@ -468,12 +477,16 @@ let
 end
 
 let
+    tsave = [5, 10, 25, 50, 100, 200, 500, 750, 1000]
+    tsave .-=1
     s = (length(params.nles), length(params.filters), length(projectorders))
+    swt = (length(params.nles), length(params.filters), length(projectorders), length(tsave))
     epost = (;
-        nomodel = zeros(T, s),
-        model_prior = zeros(T, s),
-        model_post = zeros(T, s),
+        nomodel = zeros(T, swt),
+        model_prior = zeros(T, swt),
+        model_post = zeros(T, swt),
         model_t_post_inference = zeros(T, s),
+        nts = zeros(T, length(tsave)),
     )
     for (iorder, projectorder) in enumerate(projectorders),
         (ifil, Φ) in enumerate(params.filters),
@@ -484,23 +497,30 @@ let
         setup = getsetup(; params, nles)
         psolver = psolver_spectral(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
-        it = 1:100
+        it = 1:length(sample.t)
         data = (;
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
         )
-        dt = T(data.t[2] - data.t[1])
+        epost.nts[:] = [data.t[i] for i in tsave]
+        @info epost.nts
         tspan = (data.t[1], data.t[end])
+        dt = T(conf["posteriori"]["dt"])
 
         ## No model
-        dudt_nomod = NS.create_right_hand_side(
+        dudt_nomod = NS.create_right_hand_side_inplace(
             setup, psolver)
-        epost.nomodel[I], _ = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , dt, tspan, data, device)
+
+        epost.nomodel[I,:], _ = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , tspan, data, tsave, dt)
+        @info "Epost nomodel" epost.nomodel[I,:]
         # with closure
-        dudt = NS.create_right_hand_side_with_closure(
+        dudt = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
-        epost.model_prior[I], _ = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
-        epost.model_post[I], epost.model_t_post_inference[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data, device)
+        epost.model_prior[I, :], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
+        @info "Epost model_prior" epost.model_prior[I, :]
+        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , tspan, data, tsave, dt)
+        @info "Epost model_post" epost.model_post[I, :]
+
         clean()
     end
     jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
@@ -517,6 +537,7 @@ epost = namedtupleload(joinpath(outdir_model, "epost.jld2"))
 CairoMakie.activate!()
 
 with_theme(; palette) do
+    return
     fig = Figure(; size = (800, 300))
     axes = []
     for (ifil, Φ) in enumerate(params.filters)
@@ -557,6 +578,7 @@ end
 CairoMakie.activate!()
 
 with_theme(; palette) do
+    return
     doplot() || return
     fig = Figure(; size = (800, 300))
     linestyles = [:solid, :dash]
@@ -927,8 +949,6 @@ let
                 psolver,
                 θ,
             )[1].u |> Array
-            #@info result
-            #Array(result)
         end
         t1 = t[1]
         for i in eachindex(times)

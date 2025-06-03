@@ -10,7 +10,7 @@ params:
   tsim: 5.0
   savefreq: 50
   ndns: 4096
-  nles: [128]
+  nles: [64]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
   method: "RKMethods.Wray3(; T)"
@@ -19,25 +19,20 @@ params:
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.00005
 seeds:
-  dns: 123
+  dns: 123456
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "att_2"
-  type: attentioncnn
-  radii: [2, 2, 2]
-  channels: [24, 24, 2]
-  activations: ["tanh", "tanh", "identity"]
-  use_bias: [true, true, false]
-  use_attention: [true, true, true]
-  emb_sizes: [64, 64, 64]
-  Ns: [140, 136, 132]
-  patch_sizes: [35, 34, 33]
-  n_heads: [4, 4, 4]
-  sum_attention: [false, false, false]
+  name: "cnn_remove"
+  type: cnn
+  radii: [2, 2, 2, 2, 2]
+  channels: [24, 24, 24, 24, 2]
+  activations: ["tanh", "tanh", "tanh", "tanh", "identity"]
+  use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
+  reuse: "cnn_project"
   dotrain: true
   nepoch: 10000
   batchsize: 64
@@ -47,10 +42,11 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 500
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(1))"
+  nepoch: 300
+  opt: "OptimiserChain(Adam(T(1.0e-4)), ClipGrad(0.01))"
   nunroll: 5
   nunroll_valid: 10
-  dt: T(5e-5)
+  nsamples: 1
+  dt: 0.0001
   do_plot: false
   plot_train: false

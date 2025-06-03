@@ -108,7 +108,6 @@ using NNlib
 using Optimisers
 using ParameterSchedulers
 using Random
-using SparseArrays
 
 
 # ## Random number seeds
@@ -369,6 +368,8 @@ let
         dns_seeds_train,
         dns_seeds_valid,
         nunroll = conf["posteriori"]["nunroll"],
+        nsamples = conf["posteriori"]["nsamples"],
+        dt = T(conf["posteriori"]["dt"]),
         closure,
         closure_name,
         θ_start = θ_cnn_prior,
@@ -376,9 +377,9 @@ let
         opt = eval(Meta.parse(conf["posteriori"]["opt"])),
         nunroll_valid = conf["posteriori"]["nunroll_valid"],
         nepoch,
-        dt = eval(Meta.parse(conf["posteriori"]["dt"])),
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
+        sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,
     )
 end
 end
@@ -487,13 +488,17 @@ let
 end
 
 let
+    tsave = [5, 10, 25, 50, 100, 200, 500, 750, 1000]
+    tsave .-=1
     s = (length(params.nles), length(params.filters), length(projectorders))
+    swt = (length(params.nles), length(params.filters), length(projectorders), length(tsave))
     epost = (;
-        nomodel = zeros(T, s),
-        model_prior = zeros(T, s),
-        model_post = zeros(T, s),
+        nomodel = zeros(T, swt),
+        model_prior = zeros(T, swt),
+        model_post = zeros(T, swt),
         model_t_post_inference = zeros(T, s),
         nomodel_t_post_inference = zeros(T, s),
+        nts = zeros(T, length(tsave)),
     )
     for (iorder, projectorder) in enumerate(projectorders),
         (ifil, Φ) in enumerate(params.filters),
@@ -504,23 +509,28 @@ let
         setup = getsetup(; params, nles)
         psolver = psolver_spectral(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
-        it = 1:100
+        it = 1:length(sample.t)
         data = (;
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
             t = sample.t[it],
         )
-        dt = T(data.t[2] - data.t[1])
+        epost.nts[:] = [data.t[i] for i in tsave]
+        @info epost.nts
         tspan = (data.t[1], data.t[end])
+        dt = T(conf["posteriori"]["dt"])
 
         ## No model
-        dudt_nomod = NS.create_right_hand_side(
+        dudt_nomod = NS.create_right_hand_side_inplace(
             setup, psolver)
-        epost.nomodel[I], epost.nomodel_t_post_inference[I] = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , dt, tspan, data, device)
+        epost.nomodel[I, :], epost.nomodel_t_post_inference[I] = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , tspan, data, tsave, dt)
+        @info "Epost nomodel" epost.nomodel[I,:]
         # with closure
-        dudt = NS.create_right_hand_side_with_closure(
+        dudt = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
-        epost.model_prior[I], _ = compute_epost(dudt_nomod, device(θ_cnn_prior[ig, ifil]) , dt, tspan, data, device)
-        epost.model_post[I], epost.model_t_post_inference[I] = compute_epost(dudt_nomod, device(θ_cnn_post[I]) , dt, tspan, data, device)
+        epost.model_prior[I, :], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
+        @info "Epost model_prior" epost.model_prior[I, :]
+        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , tspan, data, tsave, dt)
+        @info "Epost model_post" epost.model_post[I, :]
         clean()
     end
     jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
@@ -537,6 +547,7 @@ epost = namedtupleload(joinpath(outdir_model, "epost.jld2"))
 CairoMakie.activate!()
 
 with_theme(; palette) do
+    return
     fig = Figure(; size = (800, 300))
     axes = []
     for (ifil, Φ) in enumerate(params.filters)
@@ -577,6 +588,7 @@ end
 CairoMakie.activate!()
 
 with_theme(; palette) do
+    return
     doplot() || return
     fig = Figure(; size = (800, 300))
     linestyles = [:solid, :dash]
@@ -650,13 +662,12 @@ let
         θ_prior = device(θ_cnn_prior[ig, ifil])
         θ_post = device(θ_cnn_post[I])
 
-        dt = T(sample.t[2] - sample.t[1])
+        dt = T(conf["posteriori"]["dt"])
         tspan = (sample.t[1], sample.t[end])
         dt_sample = T(0.05) # Sample every 0.05 seconds for the history (same as INS)
         tsave = (x*dt_sample for x in 1:(floor(Int, length(sample.t) / 0.05)+1))
 
-
-        dudt = NS.create_right_hand_side_with_closure(
+        dudt = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
 
         griddims = ((:) for _ = 1:(ndims(ustart)-1))
@@ -668,7 +679,7 @@ let
                     Tsit5();
                     u0 = x,
                     p = θ_prior,
-                    adaptive = false,
+                    adaptive = true,
                     saveat = tsave,
                     dt = dt,
                     tspan = tspan,
@@ -682,7 +693,7 @@ let
                     Tsit5();
                     u0 = x,
                     p = θ_post,
-                    adaptive = false,
+                    adaptive = true,
                     saveat = tsave,
                     dt = dt,
                     tspan = tspan,
@@ -958,10 +969,10 @@ let
         θ_prior = device(θ_cnn_prior[I])
         θ_post = device(θ_cnn_post[I])
 
-        dt = T(1e-4)
+        dt = T(conf["posteriori"]["dt"])
         tspan = (T(0), times[end]+T(1e-4))
 
-        dudt = NS.create_right_hand_side_with_closure(
+        dudt = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
 
         griddims = ((:) for _ = 1:(ndims(ustart)-1))
@@ -970,25 +981,25 @@ let
         pred_prior =
             solve(
                     prob_prior,
-                    Tsit5();
+                    Tsit5(),
                     u0 = x,
                     p = θ_prior,
                     adaptive = true,
                     saveat = times,
-                    dt = dt,
                     tspan = tspan,
+                    dt = dt,
             )
         prob_post = ODEProblem(dudt, x, tspan, θ_post)
         pred_post =
             solve(
                     prob_post,
-                    Tsit5();
+                    Tsit5(),
                     u0 = x,
                     p = θ_post,
                     adaptive = true,
                     saveat = times,
-                    dt = dt,
                     tspan = tspan,
+                    dt = dt,
             )
 
         for it in 1:length(times)

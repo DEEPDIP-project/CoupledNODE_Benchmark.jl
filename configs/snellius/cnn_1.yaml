@@ -10,7 +10,7 @@ params:
   tsim: 5.0
   savefreq: 50
   ndns: 4096
-  nles: [128]
+  nles: [64]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
   method: "RKMethods.Wray3(; T)"
@@ -19,12 +19,12 @@ params:
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.00005
 seeds:
-  dns: 123
+  dns: 123456
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "cnn_1"
+  name: "cnn_project"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -42,9 +42,10 @@ posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
   nepoch: 300
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
+  opt: "OptimiserChain(Adam(T(1.0e-4)), ClipGrad(0.01))"
   nunroll: 5
   nunroll_valid: 10
-  dt: T(5e-5)
+  nsamples: 1
+  dt: 0.0001
   do_plot: false
   plot_train: false

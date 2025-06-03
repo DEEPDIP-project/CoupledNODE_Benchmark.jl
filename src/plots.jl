@@ -225,44 +225,84 @@ function plot_energy_evolution(
 
     num_bins = 10
 
-    # add No closure only once
-    label = "No closure (n = $nles)"
-    if _missing_label(ax1, label) && haskey(energyhistory, Symbol("nomodel"))
-        lines!(
-            ax1,
-            energyhistory.nomodel[data_index];
-            label = label,
-            linestyle = PLOT_STYLES[:no_closure].linestyle,
-            linewidth = PLOT_STYLES[:no_closure].linewidth,
-            color = PLOT_STYLES[:no_closure].color,
-        )
-        _plot_histogram(
-            ax2,
-            energyhistory.nomodel[data_index],
-            PLOT_STYLES[:no_closure].color,
-            PLOT_STYLES[:no_closure].linestyle,
-            PLOT_STYLES[:no_closure].linewidth,
-        )
+
+    if closure_name == "INS_ref"
+        label = "No closure "
+        if _missing_label(ax1, label) && haskey(energyhistory, Symbol("nomodel"))
+            lines!(
+                ax1,
+                energyhistory.nomodel[data_index];
+                label = label,
+                linestyle = PLOT_STYLES[:no_closure].linestyle,
+                linewidth = PLOT_STYLES[:no_closure].linewidth,
+                color = PLOT_STYLES[:no_closure].color,
+            )
+            _plot_histogram(
+                ax2,
+                energyhistory.nomodel[data_index],
+                PLOT_STYLES[:no_closure].color,
+                PLOT_STYLES[:no_closure].linestyle,
+                PLOT_STYLES[:no_closure].linewidth,
+            )
+        end
+        # add reference only once
+        label = "Reference"
+        if _missing_label(ax1, label) && haskey(energyhistory, Symbol("ref"))
+            lines!(
+                ax1,
+                energyhistory.ref[data_index];
+                color = PLOT_STYLES[:reference].color,
+                linestyle = PLOT_STYLES[:reference].linestyle,
+                linewidth = PLOT_STYLES[:reference].linewidth,
+                label = label,
+            )
+            _plot_histogram(
+                ax2,
+                energyhistory.ref[data_index],
+                PLOT_STYLES[:reference].color,
+                PLOT_STYLES[:reference].linestyle,
+                PLOT_STYLES[:reference].linewidth,
+            )
+        end
     end
 
-    # add reference only once
-    label = "Reference"
-    if _missing_label(ax1, label) && haskey(energyhistory, Symbol("ref"))
-        lines!(
-            ax1,
-            energyhistory.ref[data_index];
-            color = PLOT_STYLES[:reference].color,
-            linestyle = PLOT_STYLES[:reference].linestyle,
-            linewidth = PLOT_STYLES[:reference].linewidth,
-            label = label,
-        )
-        _plot_histogram(
-            ax2,
-            energyhistory.ref[data_index],
-            PLOT_STYLES[:reference].color,
-            PLOT_STYLES[:reference].linestyle,
-            PLOT_STYLES[:reference].linewidth,
-        )
+    if closure_name == "cnn_1"
+        label = "No closure (projected dyn)"
+        if _missing_label(ax1, label) && haskey(energyhistory, Symbol("nomodel"))
+            lines!(
+                ax1,
+                energyhistory.nomodel[data_index];
+                label = label,
+                linestyle = PLOT_STYLES[:no_closure_proj].linestyle,
+                linewidth = PLOT_STYLES[:no_closure_proj].linewidth,
+                color = PLOT_STYLES[:no_closure_proj].color,
+            )
+            _plot_histogram(
+                ax2,
+                energyhistory.nomodel[data_index],
+                PLOT_STYLES[:no_closure_proj].color,
+                PLOT_STYLES[:no_closure_proj].linestyle,
+                PLOT_STYLES[:no_closure_proj].linewidth,
+            )
+        end
+        label = "Reference (projected dyn)"
+        if _missing_label(ax1, label) && haskey(energyhistory, Symbol("ref"))
+            lines!(
+                ax1,
+                energyhistory.ref[data_index];
+                color = PLOT_STYLES[:reference_proj].color,
+                linestyle = PLOT_STYLES[:reference_proj].linestyle,
+                linewidth = PLOT_STYLES[:reference_proj].linewidth,
+                label = label,
+            )
+            _plot_histogram(
+                ax2,
+                energyhistory.ref[data_index],
+                PLOT_STYLES[:reference_proj].color,
+                PLOT_STYLES[:reference_proj].linestyle,
+                PLOT_STYLES[:reference_proj].linewidth,
+            )
+        end
     end
 
     if haskey(energyhistory, Symbol("smag"))
@@ -514,25 +554,7 @@ function _convert_to_single_index(i, j, k, dimj, dimk)
     return (i - 1) * dimj * dimk + (j - 1) * dimk + k
 end
 
-function plot_prior_time(outdir, closure_name, nles, Φ, model_index, ax, color)
-    # Load learned parameters
-    priortraining = loadprior(outdir, closure_name, [nles], [Φ])
-
-    # training time in seconds
-    training_time = map(p -> p.comptime, priortraining) |> vec .|> x -> round(x; digits = 3)
-
-    label = Φ isa FaceAverage ? "FA" : "VA"
-    barplot!(
-        ax,
-        [model_index],
-        training_time;
-        label = "$closure_name (n = $nles, $label)",
-        color = color, # dont change this color
-    )
-
-end
-
-function plot_posteriori_time(
+function plot_training_time(
     outdir,
     closure_name,
     nles,
@@ -542,25 +564,75 @@ function plot_posteriori_time(
     ax,
     color,
 )
+    # Load prior data
+    priortraining = loadprior(outdir, closure_name, [nles], [Φ])
+    training_time_prior = priortraining[1].time_per_epoch
 
+    # Load post data
     if closure_name == "INS_ref"
-        postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1])
-        posttraining = namedtupleload(postfile)
-        training_time = [round(posttraining.single_stored_object.comptime; digits = 3)]
+        posttraining = namedtupleload(
+            Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]),
+        )
+        training_time_post = posttraining.single_stored_object.time_per_epoch
     else
         posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
-        training_time =
-            map(p -> p.comptime, posttraining) |> vec .|> x -> round(x; digits = 3)
+        training_time_post = posttraining[1].time_per_epoch
     end
 
-    label = Φ isa FaceAverage ? "FA" : "VA"
+    # Post and prior
+    x = repeat([model_index], 2)
+    y = round.([training_time_prior, training_time_post]; digits = 3)  # 3 digits because time is in seconds
+    dodge_vals = [1, 2]
+    labels = ["prior", "post"]
+    labels_positions = [model_index - 0.2, model_index + 0.2]
+
     barplot!(
         ax,
-        [model_index],
-        training_time;
-        label = "$closure_name (n = $nles, $label)",
+        x,
+        y;
+        dodge = dodge_vals,
+        label = "$closure_name (n = $nles)",
         color = color, # dont change this color
     )
+    return labels, labels_positions
+
+end
+
+function plot_inference_time(outdir, closure_name, nles, data_index, model_index, ax, color)
+    # Prior
+    eprior_data = namedtupleload(joinpath(outdir, closure_name, "eprior.jld2"))
+    inference_time_prior = eprior_data.model_t_prior_inference[data_index]
+
+    # Post
+    epost_data = namedtupleload(joinpath(outdir, closure_name, "epost.jld2"))
+    inference_time_post = epost_data.model_t_post_inference[data_index]
+
+    # prior and post
+    x = repeat([model_index], 2)
+    y = round.([inference_time_prior, inference_time_post]; digits = 3)  # 3 digits because time is in seconds
+    dodge_vals = [1, 2]
+    labels = ["prior", "post"]
+    labels_positions = [model_index - 0.2, model_index + 0.2]
+
+    # Add smag if exists
+    if haskey(epost_data, Symbol("smag"))
+        inference_time_smag = epost_data.smag_t_post_inference[data_index]
+        x = [x; model_index]
+        y = [y; inference_time_smag]
+        dodge_vals = [dodge_vals; 3]
+        labels = [labels; "smag"]
+        labels_positions = [model_index - 0.3, model_index, model_index + 0.3]
+    end
+
+    barplot!(
+        ax,
+        x,
+        y;
+        dodge = dodge_vals,
+        label = "$closure_name (n = $nles)",
+        color = color, # dont change this color
+    )
+    return labels, labels_positions
 
 end
 
@@ -620,7 +692,6 @@ function plot_error(
     labels = ["no_closue", "prior", "post"]
     labels_positions = [0, model_index - 0.2, model_index + 0.2]
 
-
     # Smagorinsky
     if haskey(error_data, Symbol("smag"))
         x = [x; model_index]
@@ -642,4 +713,83 @@ function plot_error(
     )
 
     return labels, labels_positions
+end
+
+
+function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
+    error_data = namedtupleload(error_file)
+
+    x = error_data.nts  # use time from error data
+
+    # Prior
+    scatterlines!(
+        ax,
+        x,
+        vec(error_data.model_prior);
+        label = "$closure_name prior (n = $nles)",
+        color = color,
+        linestyle = PLOT_STYLES[:prior].linestyle,
+        linewidth = PLOT_STYLES[:prior].linewidth,
+        marker = :circle,
+    )
+
+    # Post
+    scatterlines!(
+        ax,
+        x,
+        vec(error_data.model_post);
+        label = "$closure_name post (n = $nles)",
+        color = color,
+        linestyle = PLOT_STYLES[:post].linestyle,
+        linewidth = PLOT_STYLES[:post].linewidth,
+        marker = :circle,
+    )
+
+    # Smagorinsky (optional)
+    if haskey(error_data, Symbol("smag"))
+        scatterlines!(
+            ax,
+            x,
+            vec(error_data.smag);
+            label = "$closure_name smag (n = $nles)",
+            color = PLOT_STYLES[:smag].color,
+            linestyle = PLOT_STYLES[:smag].linestyle,
+            linewidth = PLOT_STYLES[:smag].linewidth,
+            marker = :circle,
+        )
+    end
+
+    if closure_name == "INS_ref"
+        label = "No model"
+        if _missing_label(ax, label)  # add No closure only once
+            scatterlines!(
+                ax,
+                x,
+                vec(error_data.nomodel);
+                label = label,
+                linestyle = PLOT_STYLES[:no_closure].linestyle,
+                linewidth = PLOT_STYLES[:no_closure].linewidth,
+                color = PLOT_STYLES[:no_closure].color,
+                marker = :circle,
+            )
+        end
+    end
+
+    if closure_name == "cnn_INS"
+        label = "No model (projected dyn)"
+        if _missing_label(ax, label)  # add No closure only once
+            scatterlines!(
+                ax,
+                x,
+                vec(error_data.nomodel);
+                label = label,
+                linestyle = PLOT_STYLES[:no_closure_proj].linestyle,
+                linewidth = PLOT_STYLES[:no_closure_proj].linewidth,
+                color = PLOT_STYLES[:no_closure_proj].color,
+                marker = :circle,
+            )
+        end
+    end
+
+    return nothing
 end

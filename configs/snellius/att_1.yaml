@@ -19,18 +19,18 @@ params:
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.00005
 seeds:
-  dns: 123
+  dns: 123456
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "att_1"
+  name: "attention"
   type: attentioncnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
   activations: ["tanh", "tanh", "tanh", "tanh", "identity"]
   use_bias: [true, true, true, true, false]
-  use_attention: [true, true, true, true, true]
+  use_attention: [true, false, false, false, false]
   emb_sizes: [124, 124, 124, 124, 124]
   Ns: [148, 144, 140, 136, 132]
   patch_sizes: [37, 36, 35, 34, 33]
@@ -47,7 +47,7 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 500
+  nepoch: 300
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   nunroll: 5
   nunroll_valid: 10
