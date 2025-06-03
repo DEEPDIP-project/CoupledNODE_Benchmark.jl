@@ -191,6 +191,24 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
     ax.yscale = log10
 end
 
+function _plot_histogram(ax, data, color, linestyle, linewidth)
+    hist_data = hist!(
+        ax,
+        [p[2] for p in data];
+        bins = 10,
+        color = (:transparent, 0.0),
+    )
+    centers = hist_data.plots[1][1][]
+    lines!(
+        ax,
+        [p[2] for p in centers],  # x-values are frequencies
+        [p[1] for p in centers],  # y-values are bin centers
+        linestyle = linestyle,
+        linewidth = linewidth,
+        color = color,
+    )
+end
+
 function plot_energy_evolution(
     outdir,
     closure_name,
@@ -223,15 +241,12 @@ function plot_energy_evolution(
             linewidth = PLOT_STYLES[:no_closure].linewidth,
             color = PLOT_STYLES[:no_closure].color,
         )
-
-        energy_vals = [p[2] for p in energyhistory.nomodel[data_index]]
-        hist!(
+        _plot_histogram(
             ax2,
-            energy_vals;
-            bins = num_bins,
-            label = label,
-            color = PLOT_STYLES[:no_closure].color,
-            direction=:x,
+            energyhistory.nomodel[data_index],
+            PLOT_STYLES[:no_closure].color,
+            PLOT_STYLES[:no_closure].linestyle,
+            PLOT_STYLES[:no_closure].linewidth,
         )
     end
 
@@ -246,6 +261,13 @@ function plot_energy_evolution(
             linewidth = PLOT_STYLES[:reference].linewidth,
             label = label,
         )
+        _plot_histogram(
+            ax2,
+            energyhistory.ref[data_index],
+            PLOT_STYLES[:reference].color,
+            PLOT_STYLES[:reference].linestyle,
+            PLOT_STYLES[:reference].linewidth,
+        )
     end
 
     if haskey(energyhistory, Symbol("smag"))
@@ -257,9 +279,17 @@ function plot_energy_evolution(
             linewidth = PLOT_STYLES[:smag].linewidth,
             label = "$closure_name (smag) (n = $nles)",
         )
+        _plot_histogram(
+            ax2,
+            energyhistory.smag[data_index],
+            PLOT_STYLES[:smag].color,
+            PLOT_STYLES[:smag].linestyle,
+            PLOT_STYLES[:smag].linewidth,
+        )
     end
 
     label = Φ isa FaceAverage ? "FA" : "VA"
+    # prior
     lines!(
         ax1,
         energyhistory.model_prior[data_index];
@@ -268,6 +298,15 @@ function plot_energy_evolution(
         linewidth = PLOT_STYLES[:prior].linewidth,
         color = color, # dont change this color
     )
+    _plot_histogram(
+        ax2,
+        energyhistory.model_prior[data_index],
+        color,
+        PLOT_STYLES[:prior].linestyle,
+        PLOT_STYLES[:prior].linewidth,
+    )
+
+    # post
     lines!(
         ax1,
         energyhistory.model_post[data_index];
@@ -276,11 +315,22 @@ function plot_energy_evolution(
         linewidth = PLOT_STYLES[:post].linewidth,
         color = color, # dont change this color
     )
+    _plot_histogram(
+        ax2,
+        energyhistory.model_post[data_index],
+        color,
+        PLOT_STYLES[:post].linestyle,
+        PLOT_STYLES[:post].linewidth,
+    )
 
     # update axis limits
     x_values = [point[1] for v in values(energyhistory) for point in v[data_index]]
     y_values = [point[2] for v in values(energyhistory) for point in v[data_index]]
     ax1 = _update_ax_limits(ax1, x_values, y_values)
+
+    # set the y-axis limits of ax2 to be the same as ax1
+    ymin, ymax = ax1.limits[][2]
+    ylims!(ax2, ymin, ymax)
 
 end
 
