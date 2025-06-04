@@ -194,15 +194,20 @@ end
 function _plot_histogram(ax, data, label, color, linestyle, linewidth)
     hist_data = hist!(ax, [p[2] for p in data]; bins = 10, color = (:transparent, 0.0))
     centers = hist_data.plots[1][1][]
+    x_values = [p[2] for p in centers]  # x-values are frequencies
+    y_values = [p[1] for p in centers]  # y-values are bin centers
     lines!(
         ax,
-        [p[2] for p in centers],  # x-values are frequencies
-        [p[1] for p in centers],  # y-values are bin centers
+        x_values,
+        y_values,
         label = label,
         linestyle = linestyle,
         linewidth = linewidth,
         color = color,
     )
+
+    # update axis limits
+    ax = _update_ax_limits(ax, x_values, y_values)
 end
 
 function plot_energy_evolution(
