@@ -3,19 +3,26 @@ function getdatafile(outdir, nles, filter, seed)
     joinpath(outdir, "data", splatfileparts(; seed = repr(seed), filter, nles) * ".jld2")
 end
 
-function load_data_set(outdir, nles, Φ, seeds)
+function load_data_set(outdir, nles, Φ, seeds, dataproj)
     data = []
     for s in seeds
-        data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
+        filename = getdatafile(outdir, nles, Φ, s)
+        if dataproj
+            filename = replace(filename, ".jld2" => "_projected.jld2")
+        end
+        data_i = namedtupleload(filename)
         push!(data, data_i)
     end
     return data
 end
 
-function createdata(; params, seed, outdir, backend)
+function createdata(; params, seed, outdir, backend, dataproj)
     for (nles, Φ) in Iterators.product(params.nles, params.filters)
 
         filename = getdatafile(outdir, nles, Φ, seed)
+        if dataproj
+            filename = replace(filename, ".jld2" => "_projected.jld2")
+        end
         datadir = dirname(filename)
         ispath(datadir) || mkpath(datadir)
 
@@ -85,6 +92,7 @@ function trainprior(;
     do_plot = false,
     plot_train = false,
     nepoch,
+    dataproj
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -118,8 +126,8 @@ function trainprior(;
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
 
         # Read the data in the format expected by the CoupledNODE
-        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train)
-        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid)
+        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train, dataproj)
+        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid, dataproj)
         @assert length(nles) == 1 "Only one nles for a-priori training"
         io_train = NS.create_io_arrays_priori(data_train, setup[1], device)
         io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device)
@@ -244,6 +252,7 @@ function trainpost(;
     do_plot = false,
     plot_train = false,
     sensealg = nothing,
+    dataproj,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -280,8 +289,8 @@ function trainpost(;
         end
 
         # Read the data in the format expected by the CoupledNODE
-        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train)
-        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid)
+        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train, dataproj)
+        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid, dataproj)
 
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
         io_train = NS.create_io_arrays_posteriori(data_train, setup[1], device)

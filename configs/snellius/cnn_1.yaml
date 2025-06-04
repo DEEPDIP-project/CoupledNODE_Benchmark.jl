@@ -2,6 +2,7 @@ docreatedata: true
 docomp: true
 ntrajectory: 8
 T: "Float32"
+dataproj: true
 params:
   D: 2
   lims: [0.0, 1.0]

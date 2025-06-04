@@ -169,7 +169,7 @@ dns_seeds_test = dns_seeds[ntrajectory:ntrajectory]
 docreatedata = conf["docreatedata"]
 for i = 1:ntrajectory
 	if i%numtasks == taskid - 1
-		docreatedata && createdata(; params, seed = dns_seeds[i], outdir, backend)
+		docreatedata && createdata(; params, seed = dns_seeds[i], outdir, backend, dataproj = conf["dataproj"])
 	end
 end
 @info "Data generated"
@@ -271,7 +271,8 @@ let
         batchsize = conf["priori"]["batchsize"],
         do_plot = conf["priori"]["do_plot"],
         plot_train = conf["priori"]["plot_train"],
-        nepoch,
+        nepoch = nepoch,
+        dataproj = conf["dataproj"],
     )
 end
 end
@@ -369,6 +370,7 @@ let
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
         sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,
+        dataproj = conf["dataproj"],
     )
 end
 end

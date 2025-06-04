@@ -2,6 +2,7 @@ docreatedata: true
 docomp: true
 ntrajectory: 8
 T: "Float32"
+dataproj: false
 params:
   D: 2
   lims: [0.0, 1.0]
@@ -48,3 +49,4 @@ posteriori:
   dt: 0.0001
   do_plot: false
   plot_train: false
+  nsamples: 1
