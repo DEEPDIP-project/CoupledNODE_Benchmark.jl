@@ -191,6 +191,25 @@ function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, 
     ax.yscale = log10
 end
 
+function _plot_histogram(ax, data, label, color, linestyle, linewidth)
+    hist_data = hist!(ax, [p[2] for p in data]; bins = 10, color = (:transparent, 0.0))
+    centers = hist_data.plots[1][1][]
+    x_values = [p[2] for p in centers]  # x-values are frequencies
+    y_values = [p[1] for p in centers]  # y-values are bin centers
+    lines!(
+        ax,
+        x_values,
+        y_values,
+        label = label,
+        linestyle = linestyle,
+        linewidth = linewidth,
+        color = color,
+    )
+
+    # update axis limits
+    ax = _update_ax_limits(ax, x_values, y_values)
+end
+
 function plot_energy_evolution(
     outdir,
     closure_name,
@@ -209,7 +228,6 @@ function plot_energy_evolution(
     end
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
-    # add No closure only once
     if closure_name == "INS_ref"
         label = "No closure "
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
@@ -273,6 +291,7 @@ function plot_energy_evolution(
     end
 
     label = Φ isa FaceAverage ? "FA" : "VA"
+    # prior
     lines!(
         ax,
         energyhistory.model_prior[data_index];
@@ -281,6 +300,7 @@ function plot_energy_evolution(
         linewidth = PLOT_STYLES[:prior].linewidth,
         color = color, # dont change this color
     )
+    # post
     lines!(
         ax,
         energyhistory.model_post[data_index];
@@ -294,6 +314,110 @@ function plot_energy_evolution(
     x_values = [point[1] for v in values(energyhistory) for point in v[data_index]]
     y_values = [point[2] for v in values(energyhistory) for point in v[data_index]]
     ax = _update_ax_limits(ax, x_values, y_values)
+
+end
+
+function plot_energy_evolution_hist(
+    outdir,
+    closure_name,
+    nles,
+    Φ,
+    data_index,
+    ax,
+    color,
+    PLOT_STYLES,
+)
+    # Load learned parameters
+    energy_dir = joinpath(outdir, closure_name, "history.jld2")
+    if !ispath(energy_dir)
+        @warn "Energy history not found in $energy_dir"
+        return
+    end
+    energyhistory = namedtupleload(energy_dir).energyhistory;
+
+    if closure_name == "INS_ref"
+        label = "No closure "
+        if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
+            _plot_histogram(
+                ax,
+                energyhistory.nomodel[data_index],
+                label,
+                PLOT_STYLES[:no_closure].color,
+                PLOT_STYLES[:no_closure].linestyle,
+                PLOT_STYLES[:no_closure].linewidth,
+            )
+        end
+        # add reference only once
+        label = "Reference"
+        if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
+            _plot_histogram(
+                ax,
+                energyhistory.ref[data_index],
+                label,
+                PLOT_STYLES[:reference].color,
+                PLOT_STYLES[:reference].linestyle,
+                PLOT_STYLES[:reference].linewidth,
+            )
+        end
+    end
+
+    if closure_name == "cnn_1"
+        label = "No closure (projected dyn)"
+        if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
+            _plot_histogram(
+                ax,
+                energyhistory.nomodel[data_index],
+                label,
+                PLOT_STYLES[:no_closure_proj].color,
+                PLOT_STYLES[:no_closure_proj].linestyle,
+                PLOT_STYLES[:no_closure_proj].linewidth,
+            )
+        end
+        label = "Reference (projected dyn)"
+        if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
+            _plot_histogram(
+                ax,
+                energyhistory.ref[data_index],
+                label,
+                PLOT_STYLES[:reference_proj].color,
+                PLOT_STYLES[:reference_proj].linestyle,
+                PLOT_STYLES[:reference_proj].linewidth,
+            )
+        end
+    end
+
+    if haskey(energyhistory, Symbol("smag"))
+        _plot_histogram(
+            ax,
+            energyhistory.smag[data_index],
+            "$closure_name (smag) (n = $nles)",
+            PLOT_STYLES[:smag].color,
+            PLOT_STYLES[:smag].linestyle,
+            PLOT_STYLES[:smag].linewidth,
+        )
+    end
+
+    label = Φ isa FaceAverage ? "FA" : "VA"
+    # prior
+    _plot_histogram(
+        ax,
+        energyhistory.model_prior[data_index],
+        "$closure_name (prior) (n = $nles, $label)",
+        color,
+        PLOT_STYLES[:prior].linestyle,
+        PLOT_STYLES[:prior].linewidth,
+    )
+
+    # post
+    _plot_histogram(
+        ax,
+        energyhistory.model_post[data_index],
+        "$closure_name (post) (n = $nles, $label)",
+        color,
+        PLOT_STYLES[:post].linestyle,
+        PLOT_STYLES[:post].linewidth,
+    )
+
 end
 
 function _get_spectra(setup, u)

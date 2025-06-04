@@ -11,7 +11,7 @@ end
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
 confdir = joinpath(basedir, "configs/local")
-confdir = joinpath(basedir, "configs/snellius")
+#confdir = joinpath(basedir, "configs/snellius")
 @warn "Using configuration files from $confdir"
 compdir = joinpath(outdir, "comparison")
 ispath(compdir) || mkpath(compdir)
@@ -113,8 +113,13 @@ plot_labels = Dict(
         ylabel = "Face-average",
     ),
     :energy_evolution => (
-        title  = "Energy evolution for different configurations",
+        title = "Energy evolution for different configurations",
         xlabel = "t",
+        ylabel = "E(t)",
+    ),
+    :energy_evolution_hist => (
+        title = "Energy histogram for different configurations",
+        xlabel = "frequency",
         ylabel = "E(t)",
     ),
     :energy_spectra => (
@@ -225,6 +230,11 @@ for key in keys(plot_labels)
 
                 elseif key == :energy_evolution
                     plot_energy_evolution(
+                        outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
+                    )
+
+                elseif key == :energy_evolution_hist
+                    plot_energy_evolution_hist(
                         outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
                     )
 
