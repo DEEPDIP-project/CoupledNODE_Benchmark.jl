@@ -23,8 +23,8 @@ end
 
 
 function check_necessary_files(outdir, closure_name, nles, filter, projectorder)
-    divergence = joinpath(outdir, closure_name, "history.jld2")
-    energy = joinpath(outdir, closure_name, "solutions.jld2")
+    divergence = joinpath(outdir, closure_name, "history_nles=$(nles).jld2")
+    energy = joinpath(outdir, closure_name, "solutions_nles=$(nles).jld2")
     post = getpostfile(outdir, closure_name, nles, filter, projectorder)
     prior = getpriorfile(outdir, closure_name, nles, filter)
     incomplete = false

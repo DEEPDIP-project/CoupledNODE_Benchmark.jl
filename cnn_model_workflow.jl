@@ -461,11 +461,11 @@ let
             eprior.model_post[ig, ifil, iorder] = compute_eprior(closure, device(θ_cnn_post[ig, ifil, iorder]), st, testset...)
         end
     end
-    jldsave(joinpath(outdir_model, "eprior.jld2"); eprior...)
+    jldsave(joinpath(outdir_model, "eprior_nles=$(params.nles[1]).jld2"); eprior...)
 end
 clean()
 
-eprior = namedtupleload(joinpath(outdir_model, "eprior.jld2"))
+eprior = namedtupleload(joinpath(outdir_model, "eprior_nles=$(params.nles[1]).jld2"))
 
 ########################################################################## #src
 
@@ -525,10 +525,10 @@ let
 
         clean()
     end
-    jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
+    jldsave(joinpath(outdir_model, "epost_nles=$(params.nles[1]).jld2"); epost...)
 end
 
-epost = namedtupleload(joinpath(outdir_model, "epost.jld2"))
+epost = namedtupleload(joinpath(outdir_model, "epost_nles=$(params.nles[1]).jld2"))
 
 
 ########################################################################## #src
@@ -723,12 +723,12 @@ let
             energyhistory[sym][I] = results.writer.ehist
         end
     end
-    jldsave(joinpath(outdir_model, "history.jld2"); energyhistory, divergencehistory)
+    jldsave(joinpath(outdir_model, "history_nles=$(params.nles[1]).jld2"); energyhistory, divergencehistory)
     clean()
 end
 end
 
-(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir_model, "history.jld2"));
+(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir_model, "history_nles=$(params.nles[1]).jld2"));
 
 ########################################################################## #src
 
@@ -991,11 +991,11 @@ let
         end
         clean()
     end
-    jldsave("$outdir_model/solutions.jld2"; u = utimes, t = times_exact, itime_max_DIF)
+    jldsave("$outdir_model/solutions_nles=$(params.nles[1]).jld2"; u = utimes, t = times_exact, itime_max_DIF)
 end;
 
 # Load solution
-solutions = namedtupleload("$outdir_model/solutions.jld2");
+solutions = namedtupleload("$outdir_model/solutions_nles=$(params.nles[1]).jld2");
 
 ########################################################################## #src
 

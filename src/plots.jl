@@ -121,7 +121,7 @@ end
 
 function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES)
     # Load learned parameters
-    divergence_dir = joinpath(outdir, closure_name, "history.jld2")
+    divergence_dir = joinpath(outdir, closure_name, "history_nles=$(nles).jld2")
     if !ispath(divergence_dir)
         @warn "Divergence history not found in $divergence_dir"
         return
@@ -202,7 +202,7 @@ function plot_energy_evolution(
     PLOT_STYLES,
 )
     # Load learned parameters
-    energy_dir = joinpath(outdir, closure_name, "history.jld2")
+    energy_dir = joinpath(outdir, closure_name, "history_nles=$(nles).jld2")
     if !ispath(energy_dir)
         @warn "Energy history not found in $energy_dir"
         return
@@ -345,7 +345,7 @@ function plot_energy_spectra(
     PLOT_STYLES,
 )
     # Load learned parameters
-    energy_dir = joinpath(outdir, closure_name, "solutions.jld2")
+    energy_dir = joinpath(outdir, closure_name, "solutions_nles=$(nles).jld2")
     if !ispath(energy_dir)
         @warn "Energy spectra not found in $energy_dir"
         return
@@ -527,11 +527,11 @@ end
 
 function plot_inference_time(outdir, closure_name, nles, data_index, model_index, ax, color)
     # Prior
-    eprior_data = namedtupleload(joinpath(outdir, closure_name, "eprior.jld2"))
+    eprior_data = namedtupleload(joinpath(outdir, closure_name, "eprior_nles=$(nles).jld2"))
     inference_time_prior = eprior_data.model_t_prior_inference[data_index]
 
     # Post
-    epost_data = namedtupleload(joinpath(outdir, closure_name, "epost.jld2"))
+    epost_data = namedtupleload(joinpath(outdir, closure_name, "epost_nles=$(nles).jld2"))
     inference_time_post = epost_data.model_t_post_inference[data_index]
 
     # prior and post
@@ -657,7 +657,8 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         color = color,
         linestyle = PLOT_STYLES[:prior].linestyle,
         linewidth = PLOT_STYLES[:prior].linewidth,
-        marker = :circle,
+        marker = closure_name == "INS_ref" ? :diamond : :circle,  
+        markersize = closure_name == "INS_ref" ? 6 : 4, 
     )
 
     # Post
@@ -669,7 +670,8 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         color = color,
         linestyle = PLOT_STYLES[:post].linestyle,
         linewidth = PLOT_STYLES[:post].linewidth,
-        marker = :circle,
+        marker = closure_name == "INS_ref" ? :diamond : :circle,  
+        markersize = closure_name == "INS_ref" ? 6 : 4, 
     )
 
     # Smagorinsky (optional)

@@ -31,6 +31,7 @@ function createdata(; params, seed, outdir, backend, dataproj)
             return
         end
         @info "Creating data for" nles Φ seed
+	@info filename
 
         data = NS.create_les_data_projected(
             nchunks = 8000;
