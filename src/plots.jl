@@ -657,8 +657,6 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         color = color,
         linestyle = PLOT_STYLES[:prior].linestyle,
         linewidth = PLOT_STYLES[:prior].linewidth,
-        marker = closure_name == "INS_ref" ? :diamond : :circle,  
-        markersize = closure_name == "INS_ref" ? 6 : 4, 
     )
 
     # Post
@@ -670,8 +668,6 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         color = color,
         linestyle = PLOT_STYLES[:post].linestyle,
         linewidth = PLOT_STYLES[:post].linewidth,
-        marker = closure_name == "INS_ref" ? :diamond : :circle,  
-        markersize = closure_name == "INS_ref" ? 6 : 4, 
     )
 
     # Smagorinsky (optional)
