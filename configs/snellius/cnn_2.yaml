@@ -2,6 +2,7 @@ docreatedata: true
 docomp: true
 ntrajectory: 8
 T: "Float32"
+dataproj: true
 params:
   D: 2
   lims: [0.0, 1.0]
@@ -42,7 +43,7 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 300
+  nepoch: 100
   opt: "OptimiserChain(Adam(T(1.0e-4)), ClipGrad(0.01))"
   nunroll: 5
   nunroll_valid: 10

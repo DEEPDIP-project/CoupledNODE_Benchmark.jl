@@ -25,7 +25,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "cnn_project"
+  name: "cnn_project_nt25"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -33,6 +33,7 @@ closure:
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
+  reuse: "cnn_project"
   dotrain: true
   nepoch: 50000
   batchsize: 64
@@ -44,7 +45,7 @@ posteriori:
   projectorders: "(ProjectOrder.Last, )"
   nepoch: 1500
   opt: "OptimiserChain(Adam(T(1.0e-4)), ClipGrad(0.01))"
-  nunroll: 5
+  nunroll: 25
   nunroll_valid: 10
   nsamples: 1
   dt: 0.0001

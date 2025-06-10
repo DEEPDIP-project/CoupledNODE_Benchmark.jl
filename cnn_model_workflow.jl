@@ -357,6 +357,7 @@ let
         postseed = seeds.post,
         dns_seeds_train,
         dns_seeds_valid,
+        dns_seeds_test,
         nunroll = conf["posteriori"]["nunroll"],
         nsamples = conf["posteriori"]["nsamples"],
         dt = T(conf["posteriori"]["dt"]),
@@ -497,7 +498,8 @@ let
         @info "Computing a-posteriori errors" projectorder Φ nles
         I = CartesianIndex(ig, ifil, iorder)
         setup = getsetup(; params, nles)
-        psolver = psolver_spectral(setup)
+        #psolver = psolver_spectral(setup)
+        psolver = default_psolver(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         it = 1:length(sample.t)
         data = (;
@@ -520,7 +522,7 @@ let
             setup, psolver, closure, st)
         epost.model_prior[I, :], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
         @info "Epost model_prior" epost.model_prior[I, :]
-        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , tspan, data, tsave, dt)
+        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[ig, ifil, iorder]) , tspan, data, tsave, dt)
         @info "Epost model_post" epost.model_post[I, :]
 
         clean()
