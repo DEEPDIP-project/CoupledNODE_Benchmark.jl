@@ -259,6 +259,18 @@ end
 # Save parameters to disk after each run.
 # Plot training progress (for a validation data batch).
 
+# Check if it is asked to re-use the a-priori training from a different model
+if haskey(conf["priori"], "reuse")
+    reuse = conf["priori"]["reuse"]
+    @info "Reuse a-priori training from closure named: $reuse"
+    reusepriorfile(reuse, outdir, closure_name)
+end
+if haskey(conf["posteriori"], "reuse")
+    reuse = conf["posteriori"]["reuse"]
+    @info "Reuse a-posteriori training from closure named: $reuse"
+    reusepostfile(reuse, outdir, closure_name)
+end
+
 # Train
 @info "A priori training"
 for i = 1:ntrajectory

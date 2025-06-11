@@ -112,6 +112,6 @@ export _convert_to_single_index,
     plot_epost_vs_t
 
 export compute_eprior, compute_epost, compute_t_prior_inference
-export reusepriorfile
+export reusepriorfile, reusepostfile
 
 end # module Benchmark

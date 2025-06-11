@@ -68,6 +68,23 @@ function reusepriorfile(reuse, outdir, closure_name)
     end
 end
 
+function reusepostfile(reuse, outdir, closure_name)
+    reusepath = joinpath(outdir, "posttraining", reuse)
+    targetpath = joinpath(outdir, "posttraining", closure_name)
+    # If the reuse path exists, copy it to the target path
+    if ispath(reusepath)
+        @info "Reusing post training from $(reusepath) to $(targetpath)"
+        ispath(targetpath) || mkpath(targetpath)
+        for file in readdir(reusepath, join = true)
+            @info "Copying post training file $(file) to $(targetpath)"
+            cp(file, joinpath(targetpath, basename(file)); force = true)
+        end
+    else
+        @warn "Reuse path $(reusepath) does not exist. Not reusing post training."
+    end
+end
+
+
 "Load a-priori training results from correct file names."
 loadprior(outdir, closure_name, nles, filters) = map(
     splat((nles, Φ) -> load_object(getpriorfile(outdir, closure_name, nles, Φ))),

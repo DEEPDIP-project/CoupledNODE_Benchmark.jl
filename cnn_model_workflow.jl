@@ -101,6 +101,9 @@ using Lux
 using LuxCUDA
 using NNlib
 using Optimisers
+using Optimisers: Adam
+using OptimizationOptimJL
+using OptimizationCMAEvolutionStrategy
 using ParameterSchedulers
 using Random
 
@@ -247,6 +250,11 @@ if haskey(conf["priori"], "reuse")
     reuse = conf["priori"]["reuse"]
     @info "Reuse a-priori training from closure named: $reuse"
     reusepriorfile(reuse, outdir, closure_name)
+end
+if haskey(conf["posteriori"], "reuse")
+    reuse = conf["posteriori"]["reuse"]
+    @info "Reuse a-posteriori training from closure named: $reuse"
+    reusepostfile(reuse, outdir, closure_name)
 end
 
 # Train
