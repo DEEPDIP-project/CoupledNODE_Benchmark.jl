@@ -498,8 +498,8 @@ let
         @info "Computing a-posteriori errors" projectorder Φ nles
         I = CartesianIndex(ig, ifil, iorder)
         setup = getsetup(; params, nles)
-        #psolver = psolver_spectral(setup)
-        psolver = default_psolver(setup)
+        psolver = psolver_spectral(setup)
+        #psolver = default_psolver(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         it = 1:length(sample.t)
         data = (;

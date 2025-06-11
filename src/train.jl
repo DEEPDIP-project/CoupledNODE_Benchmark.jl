@@ -429,10 +429,10 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
         p = ps,
         adaptive = true,
         saveat = Array(t),
-        #tstops = Array(t),
-        #tspan = tspan,
-        #save_start = false,
-        #dt = dt,
+        tstops = Array(t),
+        tspan = tspan,
+        save_start = false,
+        dt = dt,
     )
 
     e = 0.0
@@ -451,12 +451,6 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
             push!(es, e / (it - 1))
         end
     end
-    #for it in tsave
-    #    yref = y[inside..., :, 1:it]
-    #    ypred = pred[inside..., :, 1:it]
-
-    #    Lux.MSELoss()(ypred, yref) |> e -> push!(es, e)
-    #end
 
     return es, time() - t0
 
