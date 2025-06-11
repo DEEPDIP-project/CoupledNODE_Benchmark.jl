@@ -106,6 +106,9 @@ using Lux
 using LuxCUDA
 using NNlib
 using Optimisers
+using Optimisers: Adam
+using OptimizationOptimJL
+using OptimizationCMAEvolutionStrategy
 using ParameterSchedulers
 using Random
 

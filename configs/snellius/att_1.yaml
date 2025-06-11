@@ -51,7 +51,7 @@ posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
   nepoch: 1500
-  opt: "OptimiserChain(Adam(T(1.0e-4)), ClipGrad(0.01))"
+  opt: "OptimizationCMAEvolutionStrategy.CMAEvolutionStrategyOpt()"
   nunroll: 5
   nunroll_valid: 10
   dt: 0.0001

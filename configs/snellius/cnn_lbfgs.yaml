@@ -41,10 +41,10 @@ priori:
   do_plot: false
   plot_train: false
 posteriori:
-  reuse: "cnn_project"
+  #reuse: "cnn_project"
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 2000
+  nepoch: 1500
   opt: "Optim.LBFGS()"
   nunroll: 5
   nunroll_valid: 10
