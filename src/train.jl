@@ -3,19 +3,26 @@ function getdatafile(outdir, nles, filter, seed)
     joinpath(outdir, "data", splatfileparts(; seed = repr(seed), filter, nles) * ".jld2")
 end
 
-function load_data_set(outdir, nles, Φ, seeds)
+function load_data_set(outdir, nles, Φ, seeds, dataproj)
     data = []
     for s in seeds
-        data_i = namedtupleload(getdatafile(outdir, nles, Φ, s))
+        filename = getdatafile(outdir, nles, Φ, s)
+        if dataproj
+            filename = replace(filename, ".jld2" => "_projected.jld2")
+        end
+        data_i = namedtupleload(filename)
         push!(data, data_i)
     end
     return data
 end
 
-function createdata(; params, seed, outdir, backend)
+function createdata(; params, seed, outdir, backend, dataproj)
     for (nles, Φ) in Iterators.product(params.nles, params.filters)
 
         filename = getdatafile(outdir, nles, Φ, seed)
+        if dataproj
+            filename = replace(filename, ".jld2" => "_projected.jld2")
+        end
         datadir = dirname(filename)
         ispath(datadir) || mkpath(datadir)
 
@@ -24,6 +31,7 @@ function createdata(; params, seed, outdir, backend)
             return
         end
         @info "Creating data for" nles Φ seed
+	@info filename
 
         data = NS.create_les_data_projected(
             nchunks = 8000;
@@ -85,6 +93,7 @@ function trainprior(;
     do_plot = false,
     plot_train = false,
     nepoch,
+    dataproj
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -118,8 +127,8 @@ function trainprior(;
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
 
         # Read the data in the format expected by the CoupledNODE
-        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train)
-        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid)
+        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train, dataproj)
+        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid, dataproj)
         @assert length(nles) == 1 "Only one nles for a-priori training"
         io_train = NS.create_io_arrays_priori(data_train, setup[1], device)
         io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device)
@@ -230,6 +239,7 @@ function trainpost(;
     postseed,
     dns_seeds_train,
     dns_seeds_valid,
+    dns_seeds_test,
     nunroll,
     nsamples = 1,
     closure,
@@ -244,6 +254,7 @@ function trainpost(;
     do_plot = false,
     plot_train = false,
     sensealg = nothing,
+    dataproj,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -271,21 +282,15 @@ function trainpost(;
         checkfile = join(splitext(postfile), "_checkpoint")
         setup = getsetup(; params, nles)
         psolver = default_psolver(setup)
-        # Read the data in the format expected by the CoupledNODE
         T = eltype(params.Re)
-        setup = []
-        for nl in nles
-            x = ntuple(α -> LinRange(T(0.0), T(1.0), nl + 1), params.D)
-            push!(setup, Setup(; x = x, Re = params.Re, params.backend))
-        end
 
         # Read the data in the format expected by the CoupledNODE
-        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train)
-        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid)
+        data_train = load_data_set(outdir, nles, Φ, dns_seeds_train, dataproj)
+        data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid, dataproj)
 
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
-        io_train = NS.create_io_arrays_posteriori(data_train, setup[1], device)
-        io_valid = NS.create_io_arrays_posteriori(data_valid, setup[1], device)
+        io_train = NS.create_io_arrays_posteriori(data_train, setup, device)
+        io_valid = NS.create_io_arrays_posteriori(data_valid, setup, device)
         θ = device(copy(θ_start[itotal]))
         dataloader_post = NS.create_dataloader_posteriori(
             io_train;
@@ -295,7 +300,7 @@ function trainpost(;
             device = device,
         )
 
-        dudt_nn = NS.create_right_hand_side_with_closure(setup[1], psolver, closure, st)
+        dudt_nn = NS.create_right_hand_side_with_closure(setup, psolver, closure, st)
         griddims = ((:) for _ = 1:params.D)
         inside = ((2:(nles+1)) for _ = 1:params.D)
         loss = CoupledNODE.create_loss_post_lux(
@@ -328,11 +333,25 @@ function trainpost(;
             nepochs_left = nepoch
         end
 
+
+        # For the callback I am going to use the a-posteriori error estimator
+        sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
+        it = 1:(nunroll_valid+1)
+        data_cb = (;
+            u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
+            t = sample.t[it],
+        )
+        tspan = (data_cb.t[1], data_cb.t[end])
+        tsave = [nunroll_valid]
+        dudt_cb = NS.create_right_hand_side_with_closure_inplace(
+            setup, psolver, closure, st)
+        loss_cb(_model, pp, _st, _data ) = compute_epost(dudt_cb, pp , tspan, data_cb, tsave, dt)[1][end]
+
         callbackstate, callback = NS.create_callback(
             closure,
             θ,
             io_valid,
-            loss,
+            loss_cb,
             st;
             callbackstate = callbackstate,
             nunroll = nunroll_valid,
@@ -410,6 +429,7 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
         p = ps,
         adaptive = true,
         saveat = Array(t),
+        tstops = Array(t),
         tspan = tspan,
         save_start = false,
         dt = dt,

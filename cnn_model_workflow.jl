@@ -169,7 +169,7 @@ dns_seeds_test = dns_seeds[ntrajectory:ntrajectory]
 docreatedata = conf["docreatedata"]
 for i = 1:ntrajectory
 	if i%numtasks == taskid - 1
-		docreatedata && createdata(; params, seed = dns_seeds[i], outdir, backend)
+		docreatedata && createdata(; params, seed = dns_seeds[i], outdir, backend, dataproj = conf["dataproj"])
 	end
 end
 @info "Data generated"
@@ -271,7 +271,8 @@ let
         batchsize = conf["priori"]["batchsize"],
         do_plot = conf["priori"]["do_plot"],
         plot_train = conf["priori"]["plot_train"],
-        nepoch,
+        nepoch = nepoch,
+        dataproj = conf["dataproj"],
     )
 end
 end
@@ -356,6 +357,7 @@ let
         postseed = seeds.post,
         dns_seeds_train,
         dns_seeds_valid,
+        dns_seeds_test,
         nunroll = conf["posteriori"]["nunroll"],
         nsamples = conf["posteriori"]["nsamples"],
         dt = T(conf["posteriori"]["dt"]),
@@ -369,6 +371,7 @@ let
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
         sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,
+        dataproj = conf["dataproj"],
     )
 end
 end
@@ -459,11 +462,11 @@ let
             eprior.model_post[ig, ifil, iorder] = compute_eprior(closure, device(θ_cnn_post[ig, ifil, iorder]), st, testset...)
         end
     end
-    jldsave(joinpath(outdir_model, "eprior.jld2"); eprior...)
+    jldsave(joinpath(outdir_model, "eprior_nles=$(params.nles[1]).jld2"); eprior...)
 end
 clean()
 
-eprior = namedtupleload(joinpath(outdir_model, "eprior.jld2"))
+eprior = namedtupleload(joinpath(outdir_model, "eprior_nles=$(params.nles[1]).jld2"))
 
 ########################################################################## #src
 
@@ -496,6 +499,7 @@ let
         I = CartesianIndex(ig, ifil, iorder)
         setup = getsetup(; params, nles)
         psolver = psolver_spectral(setup)
+        #psolver = default_psolver(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         it = 1:length(sample.t)
         data = (;
@@ -518,15 +522,15 @@ let
             setup, psolver, closure, st)
         epost.model_prior[I, :], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
         @info "Epost model_prior" epost.model_prior[I, :]
-        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , tspan, data, tsave, dt)
+        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[ig, ifil, iorder]) , tspan, data, tsave, dt)
         @info "Epost model_post" epost.model_post[I, :]
 
         clean()
     end
-    jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
+    jldsave(joinpath(outdir_model, "epost_nles=$(params.nles[1]).jld2"); epost...)
 end
 
-epost = namedtupleload(joinpath(outdir_model, "epost.jld2"))
+epost = namedtupleload(joinpath(outdir_model, "epost_nles=$(params.nles[1]).jld2"))
 
 
 ########################################################################## #src
@@ -721,12 +725,12 @@ let
             energyhistory[sym][I] = results.writer.ehist
         end
     end
-    jldsave(joinpath(outdir_model, "history.jld2"); energyhistory, divergencehistory)
+    jldsave(joinpath(outdir_model, "history_nles=$(params.nles[1]).jld2"); energyhistory, divergencehistory)
     clean()
 end
 end
 
-(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir_model, "history.jld2"));
+(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir_model, "history_nles=$(params.nles[1]).jld2"));
 
 ########################################################################## #src
 
@@ -989,11 +993,11 @@ let
         end
         clean()
     end
-    jldsave("$outdir_model/solutions.jld2"; u = utimes, t = times_exact, itime_max_DIF)
+    jldsave("$outdir_model/solutions_nles=$(params.nles[1]).jld2"; u = utimes, t = times_exact, itime_max_DIF)
 end;
 
 # Load solution
-solutions = namedtupleload("$outdir_model/solutions.jld2");
+solutions = namedtupleload("$outdir_model/solutions_nles=$(params.nles[1]).jld2");
 
 ########################################################################## #src
 

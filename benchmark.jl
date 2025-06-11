@@ -266,7 +266,7 @@ for key in keys(plot_labels)
                     push!(bar_labels, "$closure_name")
                 elseif key == :eprior
                     error_file = joinpath(
-                        outdir, closure_name, "eprior.jld2"
+                        outdir, closure_name, "eprior_nles=$(nles).jld2"
                     )
                     bar_label, bar_position = plot_error(
                         error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
@@ -275,7 +275,7 @@ for key in keys(plot_labels)
                     append!(bar_labels, bar_label)
                 elseif key == :epost
                     error_file = joinpath(
-                        outdir, closure_name, "epost.jld2"
+                        outdir, closure_name, "epost_nles=$(nles).jld2"
                     )
                     bar_label, bar_position = plot_error(
                         error_file, closure_name, nles, data_index_v, col_index, ax, color, PLOT_STYLES
@@ -284,7 +284,7 @@ for key in keys(plot_labels)
                     append!(bar_labels, bar_label)
                 elseif key == :epost_vs_t
                     error_file = joinpath(
-                        outdir, closure_name, "epost.jld2"
+                        outdir, closure_name, "epost_nles=$(nles).jld2"
                     )
                     plot_epost_vs_t(
                         error_file, closure_name, nles, ax, color, PLOT_STYLES

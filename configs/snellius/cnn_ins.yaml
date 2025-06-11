@@ -2,6 +2,7 @@ docreatedata: true
 docomp: true
 ntrajectory: 8
 T: "Float32"
+dataproj: false
 params:
   D: 2
   lims: [0.0, 1.0]
@@ -19,7 +20,7 @@ params:
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.00005
 seeds:
-  dns: 123
+  dns: 123456
   θ_start: 234
   prior: 345
   post: 456
@@ -33,7 +34,7 @@ closure:
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 10000
+  nepoch: 50000
   batchsize: 64
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   do_plot: false
@@ -41,10 +42,11 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 300
+  nepoch: 1500
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   nunroll: 5
   nunroll_valid: 10
   dt: 0.0001
   do_plot: false
   plot_train: false
+  nsamples: 1
