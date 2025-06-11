@@ -239,7 +239,6 @@ function trainpost(;
     postseed,
     dns_seeds_train,
     dns_seeds_valid,
-    dns_seeds_test,
     nunroll,
     nsamples = 1,
     closure,
@@ -335,7 +334,7 @@ function trainpost(;
 
 
         # For the callback I am going to use the a-posteriori error estimator
-        sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
+        sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_valid[1]))
         it = 1:(nunroll_valid+1)
         data_cb = (;
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,

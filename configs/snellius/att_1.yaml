@@ -11,7 +11,7 @@ params:
   tsim: 5.0
   savefreq: 50
   ndns: 4096
-  nles: [128]
+  nles: [64]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
   method: "RKMethods.Wray3(; T)"
@@ -33,8 +33,10 @@ closure:
   use_bias: [true, true, true, true, false]
   use_attention: [true, false, false, false, false]
   emb_sizes: [124, 124, 124, 124, 124]
-  Ns: [148, 144, 140, 136, 132]
-  patch_sizes: [37, 36, 35, 34, 33]
+#  Ns: [148, 144, 140, 136, 132]
+  Ns: [ 84,  80,  76,  72,  68]
+#  patch_sizes: [37, 36, 35, 34, 33]
+  patch_sizes: [21, 20, 19, 18, 17]
   n_heads: [4, 4, 4, 4, 4]
   sum_attention: [false, false, false, false, false]
   rng: "Xoshiro(seeds.θ_start)"

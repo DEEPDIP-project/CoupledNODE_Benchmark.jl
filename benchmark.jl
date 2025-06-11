@@ -18,7 +18,11 @@ ispath(compdir) || mkpath(compdir)
 
 # List configurations files
 using Glob
-list_confs = glob("*.yaml", confdir)
+exclude_patterns = ["att", "cno"]
+exclude_patterns = ["cno"]
+@warn "Excluding configurations with patterns: $(exclude_patterns)"
+all_confs = glob("*.yaml", confdir)
+list_confs = filter(conf -> all(!occursin(pat, conf) for pat in exclude_patterns), all_confs)
 if isempty(list_confs)
     @error "No configuration files found in $confdir"
 end

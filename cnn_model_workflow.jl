@@ -357,7 +357,6 @@ let
         postseed = seeds.post,
         dns_seeds_train,
         dns_seeds_valid,
-        dns_seeds_test,
         nunroll = conf["posteriori"]["nunroll"],
         nsamples = conf["posteriori"]["nsamples"],
         dt = T(conf["posteriori"]["dt"]),
