@@ -270,6 +270,7 @@ function trainpost(;
     do_plot = false,
     plot_train = false,
     sensealg = nothing,
+    sciml_solver = nothing,
     dataproj,
 )
     device(x) = adapt(params.backend, x)
@@ -325,7 +326,7 @@ function trainpost(;
             inside,
             dt;
             ensemble = nsamples > 1,
-            sciml_solver = Tsit5(),
+            sciml_solver = sciml_solver,
             sensealg = sensealg,
         )
 
@@ -361,7 +362,7 @@ function trainpost(;
         tsave = [nunroll_valid]
         dudt_cb = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
-        loss_cb(_model, pp, _st, _data ) = compute_epost(dudt_cb, pp , tspan, data_cb, tsave, dt)[1][end]
+        loss_cb(_model, pp, _st, _data ) = compute_epost(dudt_cb, sciml_solver, pp , tspan, data_cb, tsave, dt)[1][end]
 
         callbackstate, callback = NS.create_callback(
             closure,
@@ -431,7 +432,7 @@ function compute_t_prior_inference(closure, θ, st, x, y, nreps = 1000)
 end
 
 
-function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
+function compute_epost(rhs, sciml_solver, ps, tspan, (u, t), tsave, dt)
     griddims = ((:) for _ = 1:(ndims(u)-2))
     inside = ((2:(size(u, 1)-1)) for _ = 1:(ndims(u)-2))
     x = u[griddims..., :, 1]
@@ -440,7 +441,7 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
     t0 = time()
     pred = solve(
         prob,
-        Tsit5();
+        sciml_solver;
         u0 = x,
         p = ps,
         adaptive = true,

@@ -2,7 +2,7 @@ docreatedata: true
 docomp: true
 ntrajectory: 8
 T: "Float32"
-dataproj: true
+dataproj: false 
 params:
   D: 2
   lims: [0.0, 1.0]
@@ -33,7 +33,7 @@ closure:
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
-  reuse: "cnn_project"
+  reuse: "cnn_noproj"
   dotrain: true
   nepoch: 50000
   batchsize: 64
@@ -53,3 +53,4 @@ posteriori:
   do_plot: false
   plot_train: false
   sensealg: "BacksolveAdjoint()"
+  sciml_solver: "Tsit5()"

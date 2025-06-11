@@ -51,4 +51,4 @@ posteriori:
   dt: 0.0001
   do_plot: false
   plot_train: false
-  sensealg: "InterpolatingAdjoint()"
+  sciml_solver: "Tsit5()"

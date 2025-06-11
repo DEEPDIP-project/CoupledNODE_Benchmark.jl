@@ -50,3 +50,4 @@ posteriori:
   do_plot: false
   plot_train: false
   nsamples: 1
+  sciml_solver: "Tsit5()"
