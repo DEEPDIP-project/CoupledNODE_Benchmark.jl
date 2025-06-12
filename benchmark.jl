@@ -18,7 +18,8 @@ ispath(compdir) || mkpath(compdir)
 
 # List configurations files
 using Glob
-exclude_patterns = ["att", "cno", "cnn_ins", "_1"]
+#exclude_patterns = ["att", "cno", "cnn_ins", "_1", "nopr"]
+exclude_patterns = ["att", "cno", "int", "back", "rk4"]
 @warn "Excluding configurations with patterns: $(exclude_patterns)"
 all_confs = glob("*.yaml", confdir)
 list_confs = filter(conf -> all(!occursin(pat, conf) for pat in exclude_patterns), all_confs)

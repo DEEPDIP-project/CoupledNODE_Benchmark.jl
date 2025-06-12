@@ -25,7 +25,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "cnn_noproj"
+  name: "cnn_rk4"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]

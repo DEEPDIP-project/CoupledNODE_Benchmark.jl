@@ -25,7 +25,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "NoProjection"
+  name: "cnn_gauss"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -33,6 +33,7 @@ closure:
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
+  reuse: "cnn_noproj"
   dotrain: true
   nepoch: 50000
   batchsize: 64
@@ -42,12 +43,13 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 3000
-  opt: "Adam(T(1.0e-4))"
+  nepoch: 1500
+  opt: "OptimiserChain(Adam(T(1.0e-4)), ClipGrad(0.01))"
   nunroll: 5
   nunroll_valid: 10
+  nsamples: 1
   dt: 0.0001
   do_plot: false
   plot_train: false
-  nsamples: 5
+  sensealg: "GaussAdjoint()"
   sciml_solver: "Tsit5()"
