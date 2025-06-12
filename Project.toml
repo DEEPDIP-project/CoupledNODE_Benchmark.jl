@@ -39,10 +39,17 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 [weakdeps]
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 
-[sources]
-AttentionLayer = {rev = "main", url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"}
-ConvolutionalNeuralOperators = {rev = "main", url = "https://github.com/DEEPDIP-project/ConvolutionalNeuralOperators.jl.git"}
-NeuralClosure = {rev = "main", url = "https://github.com/DEEPDIP-project/NeuralClosure.jl.git"}
+[sources.AttentionLayer]
+rev = "main"
+url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"
+
+[sources.ConvolutionalNeuralOperators]
+rev = "main"
+url = "https://github.com/DEEPDIP-project/ConvolutionalNeuralOperators.jl.git"
+
+[sources.NeuralClosure]
+rev = "main"
+url = "https://github.com/DEEPDIP-project/NeuralClosure.jl.git"
 
 [compat]
 Accessors = "0.1"
@@ -58,7 +65,7 @@ DifferentialEquations = "7"
 DocStringExtensions = "0.9"
 EnumX = "1"
 FFTW = "1"
-GLMakie = "0.10"
+GLMakie = "0.10, 0.12"
 Glob = "1.3"
 IncompressibleNavierStokes = "3.0.0"
 JLD2 = "0.5"
