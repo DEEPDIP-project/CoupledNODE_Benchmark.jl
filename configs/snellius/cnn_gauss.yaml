@@ -2,7 +2,7 @@ docreatedata: true
 docomp: true
 ntrajectory: 8
 T: "Float32"
-dataproj: true
+dataproj: false
 params:
   D: 2
   lims: [0.0, 1.0]
@@ -25,7 +25,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "cnn_project"
+  name: "cnn_gauss"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -33,6 +33,7 @@ closure:
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
+  reuse: "cnn_noproj"
   dotrain: true
   nepoch: 50000
   batchsize: 64
@@ -50,4 +51,5 @@ posteriori:
   dt: 0.0001
   do_plot: false
   plot_train: false
+  sensealg: "GaussAdjoint()"
   sciml_solver: "Tsit5()"

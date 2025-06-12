@@ -2,6 +2,7 @@ docreatedata: true
 docomp: true
 ntrajectory: 8
 T: "Float32"
+dataproj: true
 params:
   D: 2
   lims: [0.0, 1.0]
@@ -10,7 +11,7 @@ params:
   tsim: 5.0
   savefreq: 50
   ndns: 4096
-  nles: [128]
+  nles: [64]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
   method: "RKMethods.Wray3(; T)"
@@ -32,14 +33,16 @@ closure:
   use_bias: [true, true, true, true, false]
   use_attention: [true, false, false, false, false]
   emb_sizes: [124, 124, 124, 124, 124]
-  Ns: [148, 144, 140, 136, 132]
-  patch_sizes: [37, 36, 35, 34, 33]
+#  Ns: [148, 144, 140, 136, 132]
+  Ns: [ 84,  80,  76,  72,  68]
+#  patch_sizes: [37, 36, 35, 34, 33]
+  patch_sizes: [21, 20, 19, 18, 17]
   n_heads: [4, 4, 4, 4, 4]
   sum_attention: [false, false, false, false, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 10000
+  nepoch: 50000
   batchsize: 64
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   do_plot: false
@@ -47,10 +50,11 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 300
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
+  nepoch: 1500
+  opt: "OptimizationCMAEvolutionStrategy.CMAEvolutionStrategyOpt()"
   nunroll: 5
   nunroll_valid: 10
-  dt: T(5e-5)
+  dt: 0.0001
+  nsamples: 1
   do_plot: false
   plot_train: false

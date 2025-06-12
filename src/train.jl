@@ -68,6 +68,23 @@ function reusepriorfile(reuse, outdir, closure_name)
     end
 end
 
+function reusepostfile(reuse, outdir, closure_name)
+    reusepath = joinpath(outdir, "posttraining", reuse)
+    targetpath = joinpath(outdir, "posttraining", closure_name)
+    # If the reuse path exists, copy it to the target path
+    if ispath(reusepath)
+        @info "Reusing post training from $(reusepath) to $(targetpath)"
+        ispath(targetpath) || mkpath(targetpath)
+        for file in readdir(reusepath, join = true)
+            @info "Copying post training file $(file) to $(targetpath)"
+            cp(file, joinpath(targetpath, basename(file)); force = true)
+        end
+    else
+        @warn "Reuse path $(reusepath) does not exist. Not reusing post training."
+    end
+end
+
+
 "Load a-priori training results from correct file names."
 loadprior(outdir, closure_name, nles, filters) = map(
     splat((nles, Φ) -> load_object(getpriorfile(outdir, closure_name, nles, Φ))),
@@ -239,7 +256,6 @@ function trainpost(;
     postseed,
     dns_seeds_train,
     dns_seeds_valid,
-    dns_seeds_test,
     nunroll,
     nsamples = 1,
     closure,
@@ -254,6 +270,7 @@ function trainpost(;
     do_plot = false,
     plot_train = false,
     sensealg = nothing,
+    sciml_solver = nothing,
     dataproj,
 )
     device(x) = adapt(params.backend, x)
@@ -309,7 +326,7 @@ function trainpost(;
             inside,
             dt;
             ensemble = nsamples > 1,
-            sciml_solver = Tsit5(),
+            sciml_solver = sciml_solver,
             sensealg = sensealg,
         )
 
@@ -335,7 +352,7 @@ function trainpost(;
 
 
         # For the callback I am going to use the a-posteriori error estimator
-        sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
+        sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_valid[1]))
         it = 1:(nunroll_valid+1)
         data_cb = (;
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
@@ -345,7 +362,7 @@ function trainpost(;
         tsave = [nunroll_valid]
         dudt_cb = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
-        loss_cb(_model, pp, _st, _data ) = compute_epost(dudt_cb, pp , tspan, data_cb, tsave, dt)[1][end]
+        loss_cb(_model, pp, _st, _data ) = compute_epost(dudt_cb, sciml_solver, pp , tspan, data_cb, tsave, dt)[1][end]
 
         callbackstate, callback = NS.create_callback(
             closure,
@@ -415,7 +432,7 @@ function compute_t_prior_inference(closure, θ, st, x, y, nreps = 1000)
 end
 
 
-function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
+function compute_epost(rhs, sciml_solver, ps, tspan, (u, t), tsave, dt)
     griddims = ((:) for _ = 1:(ndims(u)-2))
     inside = ((2:(size(u, 1)-1)) for _ = 1:(ndims(u)-2))
     x = u[griddims..., :, 1]
@@ -424,7 +441,7 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
     t0 = time()
     pred = solve(
         prob,
-        Tsit5();
+        sciml_solver;
         u0 = x,
         p = ps,
         adaptive = true,
@@ -434,6 +451,7 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
         save_start = false,
         dt = dt,
     )
+    inf_time = time() - t0
 
     e = 0.0
     es = []
@@ -452,6 +470,6 @@ function compute_epost(rhs, ps, tspan, (u, t), tsave, dt)
         end
     end
 
-    return es, time() - t0
+    return es, inf_time
 
 end

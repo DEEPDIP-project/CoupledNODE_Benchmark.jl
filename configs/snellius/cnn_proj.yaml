@@ -25,7 +25,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "cnn_project"
+  name: "Project"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -42,11 +42,11 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 1500
-  opt: "OptimiserChain(Adam(T(1.0e-4)), ClipGrad(0.01))"
+  nepoch: 3000
+  opt: "Adam(T(1.0e-4))"
   nunroll: 5
   nunroll_valid: 10
-  nsamples: 1
+  nsamples: 5
   dt: 0.0001
   do_plot: false
   plot_train: false

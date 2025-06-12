@@ -106,6 +106,9 @@ using Lux
 using LuxCUDA
 using NNlib
 using Optimisers
+using Optimisers: Adam
+using OptimizationOptimJL
+using OptimizationCMAEvolutionStrategy
 using ParameterSchedulers
 using Random
 
@@ -175,7 +178,7 @@ dns_seeds_test = dns_seeds[ntrajectory:ntrajectory]
 docreatedata = conf["docreatedata"]
 for i = 1:ntrajectory
 	if i%numtasks == taskid - 1
-		docreatedata && createdata(; params, seed = dns_seeds[i], outdir, backend)
+		docreatedata && createdata(; params, seed = dns_seeds[i], outdir, backend, dataproj = conf["dataproj"])
 	end
 end
 @info "Data generated"
@@ -259,6 +262,18 @@ end
 # Save parameters to disk after each run.
 # Plot training progress (for a validation data batch).
 
+# Check if it is asked to re-use the a-priori training from a different model
+if haskey(conf["priori"], "reuse")
+    reuse = conf["priori"]["reuse"]
+    @info "Reuse a-priori training from closure named: $reuse"
+    reusepriorfile(reuse, outdir, closure_name)
+end
+if haskey(conf["posteriori"], "reuse")
+    reuse = conf["posteriori"]["reuse"]
+    @info "Reuse a-posteriori training from closure named: $reuse"
+    reusepostfile(reuse, outdir, closure_name)
+end
+
 # Train
 @info "A priori training"
 for i = 1:ntrajectory
@@ -283,6 +298,7 @@ let
         do_plot = conf["priori"]["do_plot"],
         plot_train = conf["priori"]["plot_train"],
         nepoch,
+        dataproj = conf["dataproj"],
     )
 end
 end
@@ -352,6 +368,19 @@ projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
 nprojectorders = length(projectorders)
 @assert nprojectorders == 1 "Only DCF should be done"
 
+sensealg = haskey(conf["posteriori"], "sensealg") ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing
+sciml_solver = haskey(conf["posteriori"], "sciml_solver") ? eval(Meta.parse(conf["posteriori"]["sciml_solver"])) : nothing
+if sensealg !== nothing
+    @info "Using sensitivity algorithm: $sensealg"
+else
+    @info "No sensitivity algorithm specified"
+end
+if sciml_solver !== nothing
+    @info "Using SciML solver: $sciml_solver"
+else
+    @info "No SciML solver specified"
+end
+
 # Train
 for i = 1:ntrajectory
 	if i%numtasks == taskid -1
@@ -379,7 +408,9 @@ let
         nepoch,
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
-        sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,
+        sensealg = sensealg,
+        sciml_solver = sciml_solver,
+        dataproj = conf["dataproj"],
     )
 end
 end
@@ -470,11 +501,11 @@ let
             eprior.model_post[ig, ifil, iorder] = compute_eprior(closure, device(θ_cnn_post[ig, ifil, iorder]), st, testset...)
         end
     end
-    jldsave(joinpath(outdir_model, "eprior.jld2"); eprior...)
+    jldsave(joinpath(outdir_model, "eprior_nles=$(params.nles[1]).jld2"); eprior...)
 end
 clean()
 
-eprior = namedtupleload(joinpath(outdir_model, "eprior.jld2"))
+eprior = namedtupleload(joinpath(outdir_model, "eprior_nles=$(params.nles[1]).jld2"))
 
 ########################################################################## #src
 
@@ -522,21 +553,21 @@ let
         ## No model
         dudt_nomod = NS.create_right_hand_side_inplace(
             setup, psolver)
-        epost.nomodel[I, :], epost.nomodel_t_post_inference[I] = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , tspan, data, tsave, dt)
+        epost.nomodel[I, :], epost.nomodel_t_post_inference[I] = compute_epost(dudt_nomod, sciml_solver, θ_cnn_post[I].*0 , tspan, data, tsave, dt)
         @info "Epost nomodel" epost.nomodel[I,:]
         # with closure
         dudt = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
-        epost.model_prior[I, :], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
+        epost.model_prior[I, :], _ = compute_epost(dudt, sciml_solver, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
         @info "Epost model_prior" epost.model_prior[I, :]
-        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[I]) , tspan, data, tsave, dt)
+        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, sciml_solver, device(θ_cnn_post[I]) , tspan, data, tsave, dt)
         @info "Epost model_post" epost.model_post[I, :]
         clean()
     end
-    jldsave(joinpath(outdir_model, "epost.jld2"); epost...)
+    jldsave(joinpath(outdir_model, "epost_nles=$(params.nles[1]).jld2"); epost...)
 end
 
-epost = namedtupleload(joinpath(outdir_model, "epost.jld2"))
+epost = namedtupleload(joinpath(outdir_model, "epost_nles=$(params.nles[1]).jld2"))
 
 
 ########################################################################## #src
@@ -724,12 +755,12 @@ let
             push!(energyhistory[:model_post][I], Point2f(t, e))
         end
     end
-    jldsave(joinpath(outdir_model, "history.jld2"); energyhistory, divergencehistory)
+    jldsave(joinpath(outdir_model, "history_nles=$(params.nles[1]).jld2"); energyhistory, divergencehistory)
     clean()
 end
 end
 
-(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir_model, "history.jld2"));
+(; divergencehistory, energyhistory) = namedtupleload(joinpath(outdir_model, "history_nles=$(params.nles[1]).jld2"));
 
 ########################################################################## #src
 
@@ -1009,11 +1040,11 @@ let
         end
         clean()
     end
-    jldsave("$outdir_model/solutions.jld2"; u = utimes, t = times_exact, itime_max_DIF)
+    jldsave("$outdir_model/solutions_nles=$(params.nles[1]).jld2"; u = utimes, t = times_exact, itime_max_DIF)
 end;
 
 # Load solution
-solutions = namedtupleload("$outdir_model/solutions.jld2");
+solutions = namedtupleload("$outdir_model/solutions_nles=$(params.nles[1]).jld2");
 
 ########################################################################## #src
 

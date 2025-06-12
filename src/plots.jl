@@ -254,7 +254,7 @@ function plot_energy_evolution(
         end
     end
 
-    if closure_name == "cnn_proj"
+    if closure_name == "Project"
         label = "No closure (projected dyn)"
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             lines!(
@@ -361,7 +361,7 @@ function plot_energy_evolution_hist(
         end
     end
 
-    if closure_name == "cnn_1"
+    if closure_name == "Project"
         label = "No closure (projected dyn)"
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             _plot_histogram(
@@ -649,6 +649,50 @@ function plot_training_time(
 
 end
 
+function plot_training_comptime(
+    outdir,
+    closure_name,
+    nles,
+    Φ,
+    projectorders,
+    model_index,
+    ax,
+    color,
+)
+    # Load prior data
+    priortraining = loadprior(outdir, closure_name, [nles], [Φ])
+    training_time_prior = priortraining[1].comptime
+
+    # Load post data
+    if closure_name == "INS_ref"
+        posttraining = namedtupleload(
+            Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]),
+        )
+        training_time_post = posttraining.single_stored_object.comptime
+    else
+        posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
+        training_time_post = posttraining[1].comptime
+    end
+
+    # Post and prior
+    x = repeat([model_index], 2)
+    y = round.([training_time_prior, training_time_post]; digits = 3)  # 3 digits because time is in seconds
+    dodge_vals = [1, 2]
+    labels = ["prior", "post"]
+    labels_positions = [model_index - 0.2, model_index + 0.2]
+
+    barplot!(
+        ax,
+        x,
+        y;
+        dodge = dodge_vals,
+        label = "$closure_name (n = $nles)",
+        color = color, # dont change this color
+    )
+    return labels, labels_positions
+
+end
+
 function plot_inference_time(outdir, closure_name, nles, data_index, model_index, ax, color)
     # Prior
     eprior_data = namedtupleload(joinpath(outdir, closure_name, "eprior_nles=$(nles).jld2"))
@@ -824,7 +868,7 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         end
     end
 
-    if closure_name == "cnn_noproj"
+    if closure_name == "NoProjection"
         label = "No model (projected dyn)"
         if _missing_label(ax, label)  # add No closure only once
             scatterlines!(

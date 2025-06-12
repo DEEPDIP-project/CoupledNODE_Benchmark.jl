@@ -101,8 +101,12 @@ using Lux
 using LuxCUDA
 using NNlib
 using Optimisers
+using Optimisers: Adam
+using OptimizationOptimJL
+using OptimizationCMAEvolutionStrategy
 using ParameterSchedulers
 using Random
+using SciMLSensitivity
 
 
 # ## Random number seeds
@@ -248,6 +252,11 @@ if haskey(conf["priori"], "reuse")
     @info "Reuse a-priori training from closure named: $reuse"
     reusepriorfile(reuse, outdir, closure_name)
 end
+if haskey(conf["posteriori"], "reuse")
+    reuse = conf["posteriori"]["reuse"]
+    @info "Reuse a-posteriori training from closure named: $reuse"
+    reusepostfile(reuse, outdir, closure_name)
+end
 
 # Train
 for i = 1:ntrajectory
@@ -342,6 +351,19 @@ projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
 nprojectorders = length(projectorders)
 @assert nprojectorders == 1 "Only DCF should be done"
 
+sensealg = haskey(conf["posteriori"], "sensealg") ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing
+sciml_solver = haskey(conf["posteriori"], "sciml_solver") ? eval(Meta.parse(conf["posteriori"]["sciml_solver"])) : nothing
+if sensealg !== nothing
+    @info "Using sensitivity algorithm: $sensealg"
+else
+    @info "No sensitivity algorithm specified"
+end
+if sciml_solver !== nothing
+    @info "Using SciML solver: $sciml_solver"
+else
+    @info "No SciML solver specified"
+end
+
 # Train
 for i = 1:ntrajectory
 	if i%numtasks == taskid -1
@@ -357,7 +379,6 @@ let
         postseed = seeds.post,
         dns_seeds_train,
         dns_seeds_valid,
-        dns_seeds_test,
         nunroll = conf["posteriori"]["nunroll"],
         nsamples = conf["posteriori"]["nsamples"],
         dt = T(conf["posteriori"]["dt"]),
@@ -370,7 +391,8 @@ let
         nepoch,
         do_plot = conf["posteriori"]["do_plot"],
         plot_train = conf["posteriori"]["plot_train"],
-        sensealg = haskey(conf["posteriori"],:sensealg) ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing,
+        sensealg = sensealg,
+        sciml_solver = sciml_solver,
         dataproj = conf["dataproj"],
     )
 end
@@ -515,14 +537,14 @@ let
         dudt_nomod = NS.create_right_hand_side_inplace(
             setup, psolver)
 
-        epost.nomodel[I,:], _ = compute_epost(dudt_nomod, θ_cnn_post[I].*0 , tspan, data, tsave, dt)
+        epost.nomodel[I,:], _ = compute_epost(dudt_nomod, sciml_solver, θ_cnn_post[I].*0 , tspan, data, tsave, dt)
         @info "Epost nomodel" epost.nomodel[I,:]
         # with closure
         dudt = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
-        epost.model_prior[I, :], _ = compute_epost(dudt, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
+        epost.model_prior[I, :], _ = compute_epost(dudt, sciml_solver, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
         @info "Epost model_prior" epost.model_prior[I, :]
-        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, device(θ_cnn_post[ig, ifil, iorder]) , tspan, data, tsave, dt)
+        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, sciml_solver, device(θ_cnn_post[ig, ifil, iorder]) , tspan, data, tsave, dt)
         @info "Epost model_post" epost.model_post[I, :]
 
         clean()

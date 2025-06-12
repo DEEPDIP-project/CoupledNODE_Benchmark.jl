@@ -11,14 +11,18 @@ end
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
 confdir = joinpath(basedir, "configs/local")
-#confdir = joinpath(basedir, "configs/snellius")
+confdir = joinpath(basedir, "configs/snellius")
 @warn "Using configuration files from $confdir"
 compdir = joinpath(outdir, "comparison")
 ispath(compdir) || mkpath(compdir)
 
 # List configurations files
 using Glob
-list_confs = glob("*.yaml", confdir)
+#exclude_patterns = ["att", "cno", "cnn_ins", "_1", "nopr"]
+exclude_patterns = ["att", "cno", "int", "back", "rk4", "cnn_1" ]
+@warn "Excluding configurations with patterns: $(exclude_patterns)"
+all_confs = glob("*.yaml", confdir)
+list_confs = filter(conf -> all(!occursin(pat, conf) for pat in exclude_patterns), all_confs)
 if isempty(list_confs)
     @error "No configuration files found in $confdir"
 end
@@ -97,16 +101,16 @@ colors_list = [
 
 # Loop over plot types and configurations
 plot_labels = Dict(
-    :prior_hist => (
-        title  = "A-priori training history for different configurations",
-        xlabel = "Iteration",
-        ylabel = "A-priori error",
-    ),
-    :posteriori_hist => (
-        title  = "A-posteriori training history for different configurations",
-        xlabel = "Iteration",
-        ylabel = "DCF",
-    ),
+    #:prior_hist => (
+    #    title  = "A-priori training history for different configurations",
+    #    xlabel = "Iteration",
+    #    ylabel = "A-priori error",
+    #),
+    #:posteriori_hist => (
+    #    title  = "A-posteriori training history for different configurations",
+    #    xlabel = "Iteration",
+    #    ylabel = "DCF",
+    #),
     :divergence => (
         title  = "Divergence for different configurations",
         xlabel = "t",
@@ -128,7 +132,12 @@ plot_labels = Dict(
     :training_time => (
         title  = "Training time for different configurations",
         xlabel = "Model",
-        ylabel = "Training time (s)",
+        ylabel = "Training time (s) (per iteration)",
+    ),
+    :training_comptime => (
+        title  = "Training time for different configurations",
+        xlabel = "Model",
+        ylabel = "Full Training time (s)",
     ),
     :inference_time => (
         title  = "Inference time for different configurations",
@@ -252,6 +261,13 @@ for key in keys(plot_labels)
                     )
                     append!(bar_positions, bar_position)
                     append!(bar_labels, bar_label)
+                elseif key == :training_comptime
+                    projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+                    bar_label, bar_position = plot_training_comptime(
+                        outdir, closure_name, nles, Φ, projectorders, col_index, ax, color
+                    )
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
                 elseif key == :inference_time
                     bar_label, bar_position = plot_inference_time(
                         outdir, closure_name, nles, data_index, col_index, ax, color
@@ -299,7 +315,7 @@ for key in keys(plot_labels)
     end
 
     # Add xticks in barplot
-    if key in (:training_time, :inference_time, :num_parameters, :eprior, :epost)
+    if key in (:training_time, :training_comptime, :inference_time, :num_parameters, :eprior, :epost)
         ax.xticks = (bar_positions, bar_labels)
     end
 
