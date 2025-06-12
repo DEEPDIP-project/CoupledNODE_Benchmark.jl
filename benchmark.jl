@@ -132,7 +132,12 @@ plot_labels = Dict(
     :training_time => (
         title  = "Training time for different configurations",
         xlabel = "Model",
-        ylabel = "Training time (s)",
+        ylabel = "Training time (s) (per iteration)",
+    ),
+    :training_comptime => (
+        title  = "Training time for different configurations",
+        xlabel = "Model",
+        ylabel = "Full Training time (s)",
     ),
     :inference_time => (
         title  = "Inference time for different configurations",
@@ -256,6 +261,13 @@ for key in keys(plot_labels)
                     )
                     append!(bar_positions, bar_position)
                     append!(bar_labels, bar_label)
+                elseif key == :training_comptime
+                    projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+                    bar_label, bar_position = plot_training_comptime(
+                        outdir, closure_name, nles, Φ, projectorders, col_index, ax, color
+                    )
+                    append!(bar_positions, bar_position)
+                    append!(bar_labels, bar_label)
                 elseif key == :inference_time
                     bar_label, bar_position = plot_inference_time(
                         outdir, closure_name, nles, data_index, col_index, ax, color
@@ -303,7 +315,7 @@ for key in keys(plot_labels)
     end
 
     # Add xticks in barplot
-    if key in (:training_time, :inference_time, :num_parameters, :eprior, :epost)
+    if key in (:training_time, :training_comptime, :inference_time, :num_parameters, :eprior, :epost)
         ax.xticks = (bar_positions, bar_labels)
     end
 
