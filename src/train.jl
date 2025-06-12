@@ -451,6 +451,7 @@ function compute_epost(rhs, sciml_solver, ps, tspan, (u, t), tsave, dt)
         save_start = false,
         dt = dt,
     )
+    inf_time = time() - t0
 
     e = 0.0
     es = []
@@ -469,6 +470,6 @@ function compute_epost(rhs, sciml_solver, ps, tspan, (u, t), tsave, dt)
         end
     end
 
-    return es, time() - t0
+    return es, inf_time
 
 end
