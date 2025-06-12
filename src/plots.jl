@@ -254,7 +254,7 @@ function plot_energy_evolution(
         end
     end
 
-    if closure_name == "cnn_proj"
+    if closure_name == "Project"
         label = "No closure (projected dyn)"
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             lines!(
@@ -361,7 +361,7 @@ function plot_energy_evolution_hist(
         end
     end
 
-    if closure_name == "cnn_1"
+    if closure_name == "Project"
         label = "No closure (projected dyn)"
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             _plot_histogram(
@@ -868,7 +868,7 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         end
     end
 
-    if closure_name == "cnn_noproj"
+    if closure_name == "NoProjection"
         label = "No model (projected dyn)"
         if _missing_label(ax, label)  # add No closure only once
             scatterlines!(

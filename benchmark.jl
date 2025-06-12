@@ -19,7 +19,7 @@ ispath(compdir) || mkpath(compdir)
 # List configurations files
 using Glob
 #exclude_patterns = ["att", "cno", "cnn_ins", "_1", "nopr"]
-exclude_patterns = ["att", "cno", "int", "back", "rk4"]
+exclude_patterns = ["att", "cno", "int", "back", "rk4", "cnn_1"]
 @warn "Excluding configurations with patterns: $(exclude_patterns)"
 all_confs = glob("*.yaml", confdir)
 list_confs = filter(conf -> all(!occursin(pat, conf) for pat in exclude_patterns), all_confs)
@@ -101,16 +101,16 @@ colors_list = [
 
 # Loop over plot types and configurations
 plot_labels = Dict(
-    :prior_hist => (
-        title  = "A-priori training history for different configurations",
-        xlabel = "Iteration",
-        ylabel = "A-priori error",
-    ),
-    :posteriori_hist => (
-        title  = "A-posteriori training history for different configurations",
-        xlabel = "Iteration",
-        ylabel = "DCF",
-    ),
+    #:prior_hist => (
+    #    title  = "A-priori training history for different configurations",
+    #    xlabel = "Iteration",
+    #    ylabel = "A-priori error",
+    #),
+    #:posteriori_hist => (
+    #    title  = "A-posteriori training history for different configurations",
+    #    xlabel = "Iteration",
+    #    ylabel = "DCF",
+    #),
     :divergence => (
         title  = "Divergence for different configurations",
         xlabel = "t",
