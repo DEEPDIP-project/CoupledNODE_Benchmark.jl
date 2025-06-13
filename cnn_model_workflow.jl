@@ -177,6 +177,7 @@ for i = 1:ntrajectory
 	end
 end
 @info "Data generated"
+@assert 1==2
 
 # Computational time
 docomp = conf["docomp"]
