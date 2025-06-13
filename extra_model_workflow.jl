@@ -299,6 +299,7 @@ let
         plot_train = conf["priori"]["plot_train"],
         nepoch,
         dataproj = conf["dataproj"],
+        λ = conf["priori"]["lambda"],
     )
 end
 end
@@ -411,6 +412,7 @@ let
         sensealg = sensealg,
         sciml_solver = sciml_solver,
         dataproj = conf["dataproj"],
+        λ = conf["posteriori"]["lambda"],
     )
 end
 end

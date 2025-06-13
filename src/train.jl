@@ -110,7 +110,8 @@ function trainprior(;
     do_plot = false,
     plot_train = false,
     nepoch,
-    dataproj
+    dataproj,
+    λ = nothing,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -159,8 +160,9 @@ function trainprior(;
         )
         train_data_priori = dataloader_prior()
 
-        loss_priori_lux(closure, θ, st, train_data_priori)
-        loss = loss_priori_lux
+        # Trigger the loss once and wrap it for the expected Lux interface
+        loss_priori_lux(closure, θ, st, train_data_priori, λ)
+        loss(model, param, state, data) = loss_priori_lux(model, param, state, data, λ)
 
         if loadcheckpoint && isfile(checkfile)
             callbackstate, trainstate, epochs_trained =
@@ -272,6 +274,7 @@ function trainpost(;
     sensealg = nothing,
     sciml_solver = nothing,
     dataproj,
+    λ = nothing,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -325,6 +328,7 @@ function trainpost(;
             griddims,
             inside,
             dt;
+            λ = λ,
             ensemble = nsamples > 1,
             sciml_solver = sciml_solver,
             sensealg = sensealg,
