@@ -161,8 +161,8 @@ function trainprior(;
         train_data_priori = dataloader_prior()
 
         # Trigger the loss once and wrap it for the expected Lux interface
-        loss_priori_lux(closure, θ, st, train_data_priori, λ)
-        loss(model, param, state, data) = loss_priori_lux(model, param, state, data, λ)
+        loss_priori_lux(closure, θ, st, train_data_priori)
+        loss(model, param, state, data) = loss_priori_lux(model, param, state, data)
 
         if loadcheckpoint && isfile(checkfile)
             callbackstate, trainstate, epochs_trained =
@@ -215,6 +215,7 @@ function trainprior(;
                 alg = opt,
                 cpu = !CUDA.functional(),
                 callback = callback,
+                λ = λ,
             )
         end
         # Save on the CPU
@@ -328,7 +329,6 @@ function trainpost(;
             griddims,
             inside,
             dt;
-            λ = λ,
             ensemble = nsamples > 1,
             sciml_solver = sciml_solver,
             sensealg = sensealg,
@@ -356,7 +356,11 @@ function trainpost(;
 
 
         # For the callback I am going to use the a-posteriori error estimator
-        sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_valid[1]))
+        filename = getdatafile(outdir, nles, Φ, dns_seeds_valid[1])
+        if dataproj
+            filename = replace(filename, ".jld2" => "_projected.jld2")
+        end
+        sample = namedtupleload(filename)
         it = 1:(nunroll_valid+1)
         data_cb = (;
             u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
@@ -397,6 +401,7 @@ function trainpost(;
                 alg = opt,
                 cpu = !CUDA.functional(),
                 callback = callback,
+                λ = λ,
             )
         end
         # Save on the CPU
