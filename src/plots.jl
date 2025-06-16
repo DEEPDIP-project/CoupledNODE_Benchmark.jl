@@ -51,7 +51,7 @@ function plot_prior_traininghistory(outdir, closure_name, nles, Φ, ax, color, P
         )
     end
     label = Φ isa FaceAverage ? "FA" : "VA"
-    if closure_name == "INS_ref"
+    if closure_name == "INS.jl"
         y = [p[2] for p in priortraining[1].hist]
         x = [p[1] for p in priortraining[1].hist]
         # if x starts from 0, shift it to 1
@@ -86,7 +86,7 @@ function plot_posteriori_traininghistory(
     PLOT_STYLES,
 )
     label = Φ isa FaceAverage ? "FA" : "VA"
-    if closure_name == "INS_ref"
+    if closure_name == "INS.jl"
         # Here i need the _checkpoint file generated from PaperDC
         postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1])
         checkfile = join(splitext(postfile), "_checkpoint")
@@ -228,7 +228,7 @@ function plot_energy_evolution(
     end
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
-    if closure_name == "INS_ref"
+    if closure_name == "INS.jl"
         label = "No closure "
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             lines!(
@@ -335,7 +335,7 @@ function plot_energy_evolution_hist(
     end
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
-    if closure_name == "INS_ref"
+    if closure_name == "INS.jl"
         label = "No closure "
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             _plot_histogram(
@@ -620,7 +620,7 @@ function plot_training_time(
     training_time_prior = priortraining[1].time_per_epoch
 
     # Load post data
-    if closure_name == "INS_ref"
+    if closure_name == "INS.jl"
         posttraining = namedtupleload(
             Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]),
         )
@@ -664,7 +664,7 @@ function plot_training_comptime(
     training_time_prior = priortraining[1].comptime
 
     # Load post data
-    if closure_name == "INS_ref"
+    if closure_name == "INS.jl"
         posttraining = namedtupleload(
             Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]),
         )
@@ -852,7 +852,7 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         )
     end
 
-    if closure_name == "INS_ref"
+    if closure_name == "INS.jl"
         label = "No model"
         if _missing_label(ax, label)  # add No closure only once
             scatterlines!(
