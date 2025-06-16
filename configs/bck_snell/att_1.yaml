@@ -25,7 +25,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "attention_reg"
+  name: "attention"
   type: attentioncnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -42,7 +42,7 @@ closure:
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 5000
+  nepoch: 50000
   batchsize: 64
   opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
   do_plot: false

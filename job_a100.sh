@@ -8,7 +8,7 @@
 #SBATCH --time=05:00:00
 #SBATCH --mail-type=BEGIN,END
 # #SBATCH --mail-user=s.ciarella@esciencecenter.nl
-#SBATCH --array=1-8
+#SBATCH --array=1-1
 
 module load 2023
 module load juliaup/1.14.5-GCCcore-12.3.0
