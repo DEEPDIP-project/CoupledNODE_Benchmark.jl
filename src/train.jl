@@ -276,6 +276,7 @@ function trainpost(;
     sciml_solver = nothing,
     dataproj,
     λ = nothing,
+    multi_shooting = 0,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -332,6 +333,7 @@ function trainpost(;
             ensemble = nsamples > 1,
             sciml_solver = sciml_solver,
             sensealg = sensealg,
+            multiple_shooting = multi_shooting,
         )
 
         if loadcheckpoint && isfile(checkfile)

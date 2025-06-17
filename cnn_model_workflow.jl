@@ -282,6 +282,7 @@ let
         plot_train = conf["priori"]["plot_train"],
         nepoch = nepoch,
         dataproj = conf["dataproj"],
+        λ = haskey(conf["priori"], "λ") ? eval(Meta.parse(conf["priori"]["λ"])) : nothing
     )
 end
 end
@@ -394,6 +395,8 @@ let
         sensealg = sensealg,
         sciml_solver = sciml_solver,
         dataproj = conf["dataproj"],
+        λ = haskey(conf["posteriori"], "λ") ? eval(Meta.parse(conf["posteriori"]["λ"])) : nothing,
+        multi_shooting = haskey(conf["posteriori"], "multi_shooting") ? conf["posteriori"]["multi_shooting"] : 0,
     )
 end
 end
