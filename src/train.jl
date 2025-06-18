@@ -276,7 +276,7 @@ function trainpost(;
     sciml_solver = nothing,
     dataproj,
     λ = nothing,
-    multi_shooting = 0,
+    multishoot_nt = 0,
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -323,8 +323,8 @@ function trainpost(;
         )
 
         dudt_nn = NS.create_right_hand_side_with_closure(setup, psolver, closure, st)
-        griddims = ((:) for _ = 1:params.D)
-        inside = ((2:(nles+1)) for _ = 1:params.D)
+        griddims = ntuple(_ -> Colon(), params.D)
+        inside = ntuple(_ -> 2:(nles+1), params.D)
         loss = CoupledNODE.create_loss_post_lux(
             dudt_nn,
             griddims,
@@ -333,7 +333,7 @@ function trainpost(;
             ensemble = nsamples > 1,
             sciml_solver = sciml_solver,
             sensealg = sensealg,
-            multiple_shooting = multi_shooting,
+            multiple_shooting = multishoot_nt,
         )
 
         if loadcheckpoint && isfile(checkfile)

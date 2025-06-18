@@ -396,7 +396,7 @@ let
         sciml_solver = sciml_solver,
         dataproj = conf["dataproj"],
         λ = haskey(conf["posteriori"], "λ") ? eval(Meta.parse(conf["posteriori"]["λ"])) : nothing,
-        multi_shooting = haskey(conf["posteriori"], "multi_shooting") ? conf["posteriori"]["multi_shooting"] : 0,
+        multishoot_nt = haskey(conf["posteriori"], "multishoot_nt") ? conf["posteriori"]["multishoot_nt"] : 0,
     )
 end
 end
@@ -505,7 +505,7 @@ let
 end
 
 let
-    tsave = [5, 10, 25, 50, 100, 200, 500, 750, 1000]
+    tsave = [5, 10, 25, 50, 100, 200, 500, 750, 1000, 1500, 2000]
     tsave .-=1
     s = (length(params.nles), length(params.filters), length(projectorders))
     swt = (length(params.nles), length(params.filters), length(projectorders), length(tsave))

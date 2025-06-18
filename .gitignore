@@ -16,3 +16,4 @@ coverage
 docs/build/
 env
 node_modules
+deprecated*

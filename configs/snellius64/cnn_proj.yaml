@@ -1,7 +1,7 @@
 docreatedata: true
 docomp: true
 ntrajectory: 8
-T: "Float32"
+T: "Float64"
 dataproj: true
 params:
   D: 2
@@ -36,9 +36,10 @@ priori:
   dotrain: true
   nepoch: 50000
   batchsize: 64
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
+  opt: "Adam(T(1.0e-3))"
   do_plot: false
   plot_train: false
+  lambda: 0.00005
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
@@ -50,4 +51,5 @@ posteriori:
   dt: 0.0001
   do_plot: false
   plot_train: false
-  sciml_solver: "Tsit5()"
+  lambda: 0.00000005
+  sciml_solver: "RK4()"

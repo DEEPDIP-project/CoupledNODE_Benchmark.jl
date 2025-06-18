@@ -1,16 +1,16 @@
 docreatedata: true
 docomp: true
-ntrajectory: 8
-T: "Float32"
+ntrajectory: 4
+T: "Float64"
 dataproj: true
 params:
   D: 2
   lims: [0.0, 1.0]
   Re: 6000.0
   tburn: 0.5
-  tsim: 5.0
+  tsim: 2.0
   savefreq: 50
-  ndns: 4096
+  ndns: 1024
   nles: [64]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
@@ -25,7 +25,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "cnn_lbfgs"
+  name: "Test"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -33,24 +33,23 @@ closure:
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
-  reuse: "cnn_project"
   dotrain: true
-  nepoch: 50000
+  nepoch: 1000
   batchsize: 64
-  opt: "OptimiserChain(Adam(T(1.0e-3)), ClipGrad(0.1))"
+  opt: "Adam(T(1.0e-3))"
   do_plot: false
   plot_train: false
+  lambda: 0.00005
 posteriori:
-  #reuse: "cnn_project"
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 1500
-  opt: "Optim.LBFGS()"
+  nepoch: 100
+  opt: "Adam(T(1.0e-4))"
   nunroll: 5
   nunroll_valid: 10
-  nsamples: 1
+  nsamples: 1 
   dt: 0.0001
   do_plot: false
   plot_train: false
-  sensealg: "InterpolatingAdjoint()"
-  sciml_solver: "Tsit5()"
+  lambda: 0.00000005
+  sciml_solver: "RK4()"
