@@ -111,60 +111,68 @@ plot_labels = Dict(
     #    xlabel = "Iteration",
     #    ylabel = "DCF",
     #),
-    :divergence => (
-        title  = "Divergence for different configurations",
+    :dns_solution => (
+        title  = "DNS solution for different configurations",
         xlabel = "t",
-        ylabel = "Face-average",
+        ylabel = "MAE",
     ),
-    :energy_evolution => (
-        title = "Energy evolution for different configurations",
-        xlabel = "t",
-        ylabel = "E(t)",
-    ),
-    :energy_evolution_hist => (
-        title = "Energy histogram for different configurations",
-        xlabel = "frequency",
-        ylabel = "E(t)",
-    ),
-    :energy_spectra => (
-        title  = "Energy spectra",
-    ),
-    :training_time => (
-        title  = "Training time for different configurations",
-        xlabel = "Model",
-        ylabel = "Training time (s) (per iteration)",
-    ),
-    :training_comptime => (
-        title  = "Training time for different configurations",
-        xlabel = "Model",
-        ylabel = "Full Training time (s)",
-    ),
-    :inference_time => (
-        title  = "Inference time for different configurations",
-        xlabel = "Model",
-        ylabel = "Inference time (s)",
-    ),
-    :num_parameters => (
-        title  = "Number of parameters for different configurations",
-        xlabel = "Model",
-        ylabel = "Number of parameters",
-    ),
-    :eprior => (
-        title  = "A-prior error for different configurations",
-        xlabel = "Model",
-        ylabel = "A-prior error",
-    ),
-    :epost => (
-        title  = "A-posteriori error for different configurations",
-        xlabel = "Model",
-        ylabel = "A-posteriori error",
-    ),
-    :epost_vs_t => (
-        title = "A-posteriori error as a function of time",
-        xlabel = "t",
-        ylabel = L"e_{M}(t)",
-    ),
+    #:divergence => (
+    #    title  = "Divergence for different configurations",
+    #    xlabel = "t",
+    #    ylabel = "Face-average",
+    #),
+    #:energy_evolution => (
+    #    title = "Energy evolution for different configurations",
+    #    xlabel = "t",
+    #    ylabel = "E(t)",
+    #),
+    #:energy_evolution_hist => (
+    #    title = "Energy histogram for different configurations",
+    #    xlabel = "frequency",
+    #    ylabel = "E(t)",
+    #),
+    #:energy_spectra => (
+    #    title  = "Energy spectra",
+    #),
+    #:training_time => (
+    #    title  = "Training time for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "Training time (s) (per iteration)",
+    #),
+    #:training_comptime => (
+    #    title  = "Training time for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "Full Training time (s)",
+    #),
+    #:inference_time => (
+    #    title  = "Inference time for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "Inference time (s)",
+    #),
+    #:num_parameters => (
+    #    title  = "Number of parameters for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "Number of parameters",
+    #),
+    #:eprior => (
+    #    title  = "A-prior error for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "A-prior error",
+    #),
+    #:epost => (
+    #    title  = "A-posteriori error for different configurations",
+    #    xlabel = "Model",
+    #    ylabel = "A-posteriori error",
+    #),
+    #:epost_vs_t => (
+    #    title = "A-posteriori error as a function of time",
+    #    xlabel = "t",
+    #    ylabel = L"e_{M}(t)",
+    #),
 )
+
+dns_seeds = splitseed(123456, 8)
+dns_seeds = [0x185efb6b]
 
 for key in keys(plot_labels)
     @info "Plotting $key"
@@ -305,12 +313,20 @@ for key in keys(plot_labels)
                     plot_epost_vs_t(
                         error_file, closure_name, nles, ax, color, PLOT_STYLES
                     )
+                elseif key == :dns_solution
+                    data_ref = load_data_set(outdir, nles, Φ, dns_seeds, false)
+                    data_proj = load_data_set(outdir, nles, Φ, dns_seeds, true)
+                    plot_dns_solution(
+                        data_ref, data_proj, ax#, color, PLOT_STYLES
+                    )
+                else
+                    @error "Unknown plot type: $key"
                 end
             end
         end
     end
     # Add legend
-    if key != :energy_spectra
+    if !(key in (:energy_spectra, :dns_solution))
         Legend(fig[:, end+1], ax)
     end
 
@@ -320,7 +336,7 @@ for key in keys(plot_labels)
     end
 
     # Set log-log scale
-    if key == :epost_vs_t
+    if key in (:epost_vs_t, :dns_solution)
         ax.xscale = log10
         ax.yscale = log10
     end

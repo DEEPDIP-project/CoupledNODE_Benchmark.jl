@@ -110,9 +110,11 @@ export _convert_to_single_index,
     plot_inference_time,
     plot_num_parameters,
     plot_error,
-    plot_epost_vs_t
+    plot_epost_vs_t,
+    plot_dns_solution
 
 export compute_eprior, compute_epost, compute_t_prior_inference
 export reusepriorfile, reusepostfile
+export load_data_set
 
 end # module Benchmark

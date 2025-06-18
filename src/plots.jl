@@ -886,3 +886,22 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
 
     return nothing
 end
+
+function plot_dns_solution(data_ref, data_proj, ax) 
+
+    for (i,dr) in enumerate(data_ref)
+        x = dr.t[2:end] #skip t=0
+        y = []
+        for (ti, tval) in enumerate(x)
+            #@info "t(ref) = $(tval)   t(proj)=$(data_proj[i].t[ti])"
+            #@assert tval ≈ data_proj[i].t[ti]
+            push!(y, sum(abs, dr.u[:,:,:,ti]-data_proj[i].u[:,:,:,ti]))
+        end
+        scatterlines!(
+            ax,
+            x,
+            vec(y)
+        )
+    end
+    
+end
