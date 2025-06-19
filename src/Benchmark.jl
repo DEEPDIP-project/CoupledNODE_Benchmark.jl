@@ -116,5 +116,6 @@ export _convert_to_single_index,
 export compute_eprior, compute_epost, compute_t_prior_inference
 export reusepriorfile, reusepostfile
 export load_data_set
+export create_test_dns_proj
 
 end # module Benchmark

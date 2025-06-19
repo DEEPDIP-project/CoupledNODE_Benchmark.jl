@@ -887,21 +887,47 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
     return nothing
 end
 
-function plot_dns_solution(data_ref, data_proj, ax) 
+function plot_dns_solution(data, ax, frameskip=5, savepath = "dns_solution.gif") 
+    # use inside
+    ref = data["uref"]
+    proj = data["u"]
+    t = data["t"]
+    tref = data["tref"]
+    y = []
 
-    for (i,dr) in enumerate(data_ref)
-        x = dr.t[2:end] #skip t=0
-        y = []
-        for (ti, tval) in enumerate(x)
-            #@info "t(ref) = $(tval)   t(proj)=$(data_proj[i].t[ti])"
-            #@assert tval ≈ data_proj[i].t[ti]
-            push!(y, sum(abs, dr.u[:,:,:,ti]-data_proj[i].u[:,:,:,ti]))
-        end
-        scatterlines!(
-            ax,
-            x,
-            vec(y)
-        )
+    for i in 1:length(t)
+        @assert t[i] ≈ tref[i] "Time values do not match: t[i] = $(t[i]), tref[i] = $(tref[i])"
+        err = mean(abs.(ref[:,:,:,i] .- proj[:,:,:,i]) ./ (abs.(ref[:,:,:,i]) .+ 1e-12))
+        push!(y, sum(abs, err))
     end
+    scatterlines!(
+        ax,
+        t,
+        vec(y)
+    )
     
+    # Assume we use the first dataset to define dimensions
+    nframes = length(t)
+    # Choose z-slice
+    zidx = 1
+
+    fig = Figure(resolution = (900, 300))
+    ax1 = Makie.Axis(fig[1, 1], title="Reference")
+    ax2 = Makie.Axis(fig[1, 2], title="Projected")
+    ax3 = Makie.Axis(fig[1, 3], title="Diff")
+
+    hm1 = heatmap!(ax1, zeros(size(ref, 1), size(ref, 2)))
+    hm2 = heatmap!(ax2, zeros(size(ref, 1), size(ref, 2)))
+    hm3 = heatmap!(ax3, zeros(size(ref, 1), size(ref, 2)))
+
+    Makie.record(fig, savepath, 1:frameskip:nframes) do t
+        u_ref_t = ref[:, :, zidx, t]
+        u_proj_t = proj[:, :, zidx, t]
+
+        hm1[1] = u_ref_t
+        hm2[1] = u_proj_t
+        hm3[1] = u_ref_t - u_proj_t
+    end
+
+    println("GIF saved to $savepath")
 end

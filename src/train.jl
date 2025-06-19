@@ -31,10 +31,11 @@ function createdata(; params, seed, outdir, backend, dataproj)
             return
         end
         @info "Creating data for" nles Φ seed
-	@info filename
+    	@info filename
 
         data = NS.create_les_data_projected(
-            nchunks = 8000;
+            #nchunks = 8000;
+            nchunks = 100;
             params...,
             rng = Xoshiro(seed),
             backend = backend,
@@ -483,4 +484,137 @@ function compute_epost(rhs, sciml_solver, ps, tspan, (u, t), tsave, dt)
 
     return es, inf_time
 
+end
+
+
+function create_test_dns_proj(;
+        nchunks = 100,
+        D,
+        Re,
+        lims,
+        nles,
+        ndns,
+        filters,
+        tburn,
+        tsim,
+        savefreq,
+        Δt,
+        method = RKMethods.RK44(; T = typeof(Re)),
+        create_psolver = default_psolver,
+        backend = IncompressibleNavierStokes.CPU(),
+        icfunc = (setup, psolver, rng) -> random_field(setup, typeof(Re)(-1); psolver, rng),
+        processors = (; log = timelogger(; nupdate = 9)),
+        rng,
+        filename,
+        sciml_solver = RK4(),
+        kwargs...
+)
+
+    NS = Base.get_extension(CoupledNODE, :NavierStokes)
+    T = typeof(Re)
+
+    # Build setup and assemble operators
+    dns = Setup(; x = ntuple(α -> LinRange(lims..., ndns + 1), D), Re, backend, kwargs...)
+
+    # Since the grid is uniform and identical for x and y, we may use a specialized
+    # spectral pressure solver
+    psolver = create_psolver(dns)
+
+    # Initial conditions
+    ustart = icfunc(dns, psolver, rng)
+
+    while any(u -> any(isnan, u), ustart)
+        @warn "Initial conditions contain NaNs. Regenerating..."
+        ustart = icfunc(dns, psolver, rng)
+    end
+
+    _dns = dns
+
+    # Solve burn-in DNS using INS
+    (; u, t), outputs = solve_unsteady(; setup = _dns, ustart, tlims = (T(0), tburn), Δt, psolver)
+    ustart = copy(u)
+    @info "Burn-in DNS simulation finished"
+    any(u -> any(isnan, u), u) && @warn "NaNs after burn-in"
+
+
+    # After the burn-in I want to solve the DNS both using INS and SciML
+    @info "Starting DNS simulation with INS and SciML"
+    tdatapoint = collect(T(0):(savefreq * Δt):tsim)
+    all_ules_ref = Array{T}(undef, (ndns[1] + 2, ndns[1]+2, D, length(tdatapoint)))
+    all_t_ref = Array{T}(undef, (length(tdatapoint)))
+    idx = Ref(1)
+    stepper = create_stepper(method; setup =_dns, psolver=psolver, u = u, temp = nothing, t = T(0))
+    cache = IncompressibleNavierStokes.ode_method_cache(method, _dns)
+    while stepper.t <= tsim
+        if abs(stepper.t - tdatapoint[idx[]]) < 1e-8
+            all_ules_ref[:, :, :, idx[]] .= Array(stepper.u)
+            all_t_ref[idx[]] = stepper.t
+            idx[] += 1
+        end
+        stepper = IncompressibleNavierStokes.timestep!(method, stepper, Δt; cache = cache )
+    end
+
+    # And now we try SciML
+    u = ustart
+
+    # Define the callback function for the filter
+    function condition(u, t, integrator)
+        t in tdatapoint && return true
+        return false
+    end
+    all_ules = Array{T}(undef, (ndns[1] + 2, ndns[1]+2, D, length(tdatapoint)))
+    all_t = Array{T}(undef, (length(tdatapoint)))
+    idx = Ref(1)
+    function _callback(integrator)
+        ubc = IncompressibleNavierStokes.apply_bc_u(integrator.u, integrator.t, _dns)
+        all_ules[:, :, :, idx[]] .= Array(ubc)
+        all_t[idx[]] = integrator.t
+        idx[] += 1
+    end
+    cb = DiscreteCallback(condition, _callback)
+
+    # Now use SciML to solve the DNS
+    rhs! = NS.create_right_hand_side_inplace(dns, psolver)
+    t0 = T(0)
+    tfinal = tsim
+    dt_chunk = tsim / nchunks
+    tchunk = collect(t0:dt_chunk:tfinal)  # Save at the end of each chunk
+
+    u_current = ustart # Initial condition
+    prob = ODEProblem(rhs!, u_current, nothing, nothing)
+
+    # Store the data at t=0
+    _callback((; u = u_current, t = T(0)))
+
+    any(u -> any(isnan, u), u_current) &&
+        @warn "Solution contains NaNs. Probably dt is too large."
+
+
+    for (i, t_start) in enumerate(tchunk[1:(end - 1)])
+        GC.gc()
+        if CUDA.functional()
+            CUDA.reclaim()
+        end
+        t_end = tchunk[i + 1]
+        tspan_chunk = (t_start, t_end)
+        prob = ODEProblem(rhs!, u_current, tspan_chunk, nothing)
+
+        sol = solve(
+            prob, sciml_solver; u0 = u_current, p = nothing,
+            adaptive = false, dt = Δt, save_end = true, callback = cb,
+            tspan = tspan_chunk, tstops = tdatapoint
+        )
+
+        u_current = sol.u[end]
+    end
+
+    @info "DNS simulation finished"
+
+    any(u -> any(isnan, u), u_current) &&
+        @warn "Solution contains NaNs. Probably dt is too large."
+
+    data = (; u = all_ules, uref=all_ules_ref, t = all_t, tref = all_t_ref)
+    jldsave(filename; data...)
+    @info "Test data comparison stored in $(filename)"
+    
 end

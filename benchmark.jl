@@ -11,7 +11,7 @@ end
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
 confdir = joinpath(basedir, "configs/local")
-confdir = joinpath(basedir, "configs/snellius64")
+#confdir = joinpath(basedir, "configs/snellius64")
 @warn "Using configuration files from $confdir"
 compdir = joinpath(outdir, "comparison")
 ispath(compdir) || mkpath(compdir)
@@ -114,7 +114,7 @@ plot_labels = Dict(
     :dns_solution => (
         title  = "DNS solution for different configurations",
         xlabel = "t",
-        ylabel = "MAE",
+        ylabel = L"\frac{|u(t)-u_{proj}(t)|}{|u(t)|}",
     ),
     #:divergence => (
     #    title  = "Divergence for different configurations",
@@ -172,7 +172,8 @@ plot_labels = Dict(
 )
 
 dns_seeds = splitseed(123456, 8)
-dns_seeds = [0x185efb6b]
+dns_seeds = splitseed(16, 8)
+#dns_seeds = [0x185efb6b]
 
 for key in keys(plot_labels)
     @info "Plotting $key"
@@ -208,16 +209,16 @@ for key in keys(plot_labels)
                     continue
                 end
 
-                if !check_necessary_files(
-                    outdir,
-                    closure_name,
-                    nles,
-                    Φ,
-                    projectorders[1],
-                )
-                    @error "Some files are missing for configuration $conf_file. Skipping"
-                    continue
-                end
+                #if !check_necessary_files(
+                #    outdir,
+                #    closure_name,
+                #    nles,
+                #    Φ,
+                #    projectorders[1],
+                #)
+                #    @error "Some files are missing for configuration $conf_file. Skipping"
+                #    continue
+                #end
 
                 # make sure each combination has a consistent color
                 #TODO this function should be tested
@@ -314,10 +315,9 @@ for key in keys(plot_labels)
                         error_file, closure_name, nles, ax, color, PLOT_STYLES
                     )
                 elseif key == :dns_solution
-                    data_ref = load_data_set(outdir, nles, Φ, dns_seeds, false)
-                    data_proj = load_data_set(outdir, nles, Φ, dns_seeds, true)
+                    data = load("output/kolmogorov/test_dns_proj.jld2")
                     plot_dns_solution(
-                        data_ref, data_proj, ax#, color, PLOT_STYLES
+                        data, ax, 5, joinpath(compdir, "projection_dns_test_nles=$(nles).gif")
                     )
                 else
                     @error "Unknown plot type: $key"
@@ -336,9 +336,9 @@ for key in keys(plot_labels)
     end
 
     # Set log-log scale
-    if key in (:epost_vs_t, :dns_solution)
-        ax.xscale = log10
+    if key == :epost_vs_t
         ax.yscale = log10
+        ax.xscale = log10
     end
 
     # Display and save the figure

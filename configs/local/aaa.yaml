@@ -1,26 +1,27 @@
 docreatedata: true
 docomp: true
-ntrajectory: 4
+ntrajectory: 8
 T: "Float64"
 dataproj: true
 params:
   D: 2
   lims: [0.0, 1.0]
   Re: 6000.0
-  tburn: 0.5
-  tsim: 2.0
+  tburn: 0.1
+  tsim: 0.5
   savefreq: 50
   ndns: 128
   nles: [32]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
-  method: "RKMethods.Wray3(; T)"
+    #method: "RKMethods.Wray3(; T)"
+  method: "RKMethods.RK44(; T)"
   bodyforce: "(dim, x, y, t) -> (dim == 1) * 5 * sinpi(8 * y)"
   issteadybodyforce: true
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.00005
 seeds:
-  dns: 123456
+  dns: 16
   θ_start: 234
   prior: 345
   post: 456

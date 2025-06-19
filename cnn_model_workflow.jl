@@ -169,6 +169,22 @@ dns_seeds_train = dns_seeds[1:ntrajectory-2]
 dns_seeds_valid = dns_seeds[ntrajectory-1:ntrajectory-1]
 dns_seeds_test = dns_seeds[ntrajectory:ntrajectory]
 
+doprojtest = conf["projtest"]
+if doprojtest && taskid == 1
+    testprojfile = joinpath(outdir, "test_dns_proj.jld2")
+    if isfile(testprojfile)
+        @info "Test DNS projection file already exists."
+    else
+        create_test_dns_proj(
+            nchunks = 8000;
+            params...,
+            rng = Xoshiro(2406),
+            backend = backend,
+            filename = testprojfile,
+        )
+    end
+end
+
 # Create data
 docreatedata = conf["docreatedata"]
 for i = 1:ntrajectory
