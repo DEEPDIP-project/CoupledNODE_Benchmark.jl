@@ -553,6 +553,7 @@ function create_test_dns_proj(;
         end
         stepper = IncompressibleNavierStokes.timestep!(method, stepper, Δt; cache = cache )
     end
+    @info "finished INS DNS simulation"
 
     # And now we try SciML
     u = ustart
