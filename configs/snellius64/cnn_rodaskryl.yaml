@@ -26,7 +26,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "Rosenbrock23"
+  name: "Rodas+Krylov"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -54,4 +54,4 @@ posteriori:
   do_plot: false
   plot_train: false
   lambda: 0.00000005
-  sciml_solver: "AutoTsit5(Rosenbrock23(autodiff = AutoFiniteDiff()))"
+  sciml_solver: "Rodas5P(linsolve = KrylovJL_GMRES(), autodiff = AutoFiniteDiff())"

@@ -3,6 +3,7 @@ docomp: true
 ntrajectory: 8
 T: "Float32"
 dataproj: true
+projtest: true
 params:
   D: 2
   lims: [0.0, 1.0]
@@ -34,7 +35,7 @@ closure:
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
-  dotrain: true
+  dotrain: false
   nepoch: 1000
   batchsize: 64
   opt: "Adam(T(1.0e-3))"
@@ -53,5 +54,5 @@ posteriori:
   do_plot: false
   plot_train: false
   lambda: 0.00000005
-  sciml_solver: "RK4()"
-  sensealg: "ZygoteAdjoint()"
+  sciml_solver: "CompositeAlgorithm((Tsit5(), Vern7()), integrator -> Int(integrator.dt < 0.001) + 1)"
+  #sensealg: "ZygoteAdjoint()"

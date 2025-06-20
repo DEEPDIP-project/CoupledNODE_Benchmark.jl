@@ -54,4 +54,4 @@ posteriori:
   do_plot: false
   plot_train: false
   lambda: 0.00000005
-  sciml_solver: "Rodas5P()"
+  sciml_solver: "Rodas5P(autodiff = AutoFiniteDiff())"
