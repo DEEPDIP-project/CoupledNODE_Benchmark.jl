@@ -3,7 +3,7 @@ docomp: true
 ntrajectory: 8
 T: "Float64"
 dataproj: true
-projtest: true
+projtest: false
 params:
   D: 2
   lims: [0.0, 1.0]
