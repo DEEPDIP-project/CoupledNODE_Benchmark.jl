@@ -9,7 +9,7 @@ params:
   lims: [0.0, 1.0]
   Re: 6000.0
   tburn: 0.5
-  tsim: 5.0
+  tsim: 2.0
   savefreq: 50
   ndns: 2048
   nles: [64]
