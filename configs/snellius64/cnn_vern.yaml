@@ -26,7 +26,7 @@ seeds:
   prior: 345
   post: 456
 closure:
-  name: "Rodas"
+  name: "Vern"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]

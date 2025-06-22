@@ -254,8 +254,9 @@ function plot_energy_evolution(
         end
     end
 
-    if closure_name == "Project"
+    if closure_name == "Base"
         label = "No closure (projected dyn)"
+        label = "No closure"
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             lines!(
                 ax,
@@ -267,6 +268,7 @@ function plot_energy_evolution(
             )
         end
         label = "Reference (projected dyn)"
+        label = "Reference"
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
             lines!(
                 ax,
@@ -361,8 +363,9 @@ function plot_energy_evolution_hist(
         end
     end
 
-    if closure_name == "Project"
+    if closure_name == "Base"
         label = "No closure (projected dyn)"
+        label = "No closure"
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             _plot_histogram(
                 ax,
@@ -374,6 +377,7 @@ function plot_energy_evolution_hist(
             )
         end
         label = "Reference (projected dyn)"
+        label = "Reference"
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("ref"))
             _plot_histogram(
                 ax,
@@ -868,8 +872,9 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
         end
     end
 
-    if closure_name == "NoProjection"
+    if closure_name == "Base"
         label = "No model (projected dyn)"
+        label = "No model"
         if _missing_label(ax, label)  # add No closure only once
             scatterlines!(
                 ax,
@@ -887,7 +892,8 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
     return nothing
 end
 
-function plot_dns_solution(data, ax, frameskip=5, savepath = "dns_solution.gif") 
+function plot_dns_solution(ax, frameskip, infile, savepath) 
+    data = load(infile)
     # use inside
     ref = data["uref"]
     proj = data["u"]

@@ -11,7 +11,7 @@ end
 basedir = haskey(ENV, "DEEPDIP") ? ENV["DEEPDIP"] : @__DIR__
 outdir = joinpath(basedir, "output", "kolmogorov")
 confdir = joinpath(basedir, "configs/local")
-#confdir = joinpath(basedir, "configs/snellius64")
+confdir = joinpath(basedir, "configs/snellius64")
 @warn "Using configuration files from $confdir"
 compdir = joinpath(outdir, "comparison")
 ispath(compdir) || mkpath(compdir)
@@ -20,12 +20,10 @@ ispath(compdir) || mkpath(compdir)
 using Glob
 #exclude_patterns = ["att", "cno", "cnn_ins", "_1", "nopr"]
 exclude_patterns = ["att", "cno", "int", "back", "rk4", "cnn_1" ]
+exclude_patterns = ["att", "cno" ]
 @warn "Excluding configurations with patterns: $(exclude_patterns)"
 all_confs = glob("*.yaml", confdir)
 list_confs = filter(conf -> all(!occursin(pat, conf) for pat in exclude_patterns), all_confs)
-if isempty(list_confs)
-    @error "No configuration files found in $confdir"
-end
 
 
 using Pkg
@@ -61,6 +59,29 @@ else
     @warn "Running on CPU"
     cuda_active = false
     backend = IncompressibleNavierStokes.CPU()
+end
+
+# Create a new list to store valid configs
+valid_confs = String[]
+for conf_file in list_confs
+    closure_name, params, conf = read_config(outdir, conf_file, backend)
+    if !check_necessary_files(
+        outdir,
+        closure_name,
+        params.nles[1],
+        params.filters[1],
+        eval(Meta.parse(conf["posteriori"]["projectorders"]))[1]
+    )
+        @error "Some files are missing for configuration $conf_file. Skipping"
+        continue
+    end
+    push!(valid_confs, conf_file)
+end
+# Replace list_confs with only the valid ones
+list_confs = valid_confs
+
+if isempty(list_confs)
+    @error "No configuration files found in $confdir"
 end
 
 # Global variables for setting linestyle and colors in all plots
@@ -101,74 +122,74 @@ colors_list = [
 
 # Loop over plot types and configurations
 plot_labels = Dict(
-    #:prior_hist => (
-    #    title  = "A-priori training history for different configurations",
-    #    xlabel = "Iteration",
-    #    ylabel = "A-priori error",
-    #),
-    #:posteriori_hist => (
-    #    title  = "A-posteriori training history for different configurations",
-    #    xlabel = "Iteration",
-    #    ylabel = "DCF",
-    #),
+    :prior_hist => (
+        title  = "A-priori training history for different configurations",
+        xlabel = "Iteration",
+        ylabel = "A-priori error",
+    ),
+    :posteriori_hist => (
+        title  = "A-posteriori training history for different configurations",
+        xlabel = "Iteration",
+        ylabel = "DCF",
+    ),
     :dns_solution => (
         title  = "DNS solution for different configurations",
         xlabel = "t",
         ylabel = L"\frac{|u(t)-u_{proj}(t)|}{|u(t)|}",
     ),
-    #:divergence => (
-    #    title  = "Divergence for different configurations",
-    #    xlabel = "t",
-    #    ylabel = "Face-average",
-    #),
-    #:energy_evolution => (
-    #    title = "Energy evolution for different configurations",
-    #    xlabel = "t",
-    #    ylabel = "E(t)",
-    #),
-    #:energy_evolution_hist => (
-    #    title = "Energy histogram for different configurations",
-    #    xlabel = "frequency",
-    #    ylabel = "E(t)",
-    #),
-    #:energy_spectra => (
-    #    title  = "Energy spectra",
-    #),
-    #:training_time => (
-    #    title  = "Training time for different configurations",
-    #    xlabel = "Model",
-    #    ylabel = "Training time (s) (per iteration)",
-    #),
-    #:training_comptime => (
-    #    title  = "Training time for different configurations",
-    #    xlabel = "Model",
-    #    ylabel = "Full Training time (s)",
-    #),
-    #:inference_time => (
-    #    title  = "Inference time for different configurations",
-    #    xlabel = "Model",
-    #    ylabel = "Inference time (s)",
-    #),
-    #:num_parameters => (
-    #    title  = "Number of parameters for different configurations",
-    #    xlabel = "Model",
-    #    ylabel = "Number of parameters",
-    #),
-    #:eprior => (
-    #    title  = "A-prior error for different configurations",
-    #    xlabel = "Model",
-    #    ylabel = "A-prior error",
-    #),
-    #:epost => (
-    #    title  = "A-posteriori error for different configurations",
-    #    xlabel = "Model",
-    #    ylabel = "A-posteriori error",
-    #),
-    #:epost_vs_t => (
-    #    title = "A-posteriori error as a function of time",
-    #    xlabel = "t",
-    #    ylabel = L"e_{M}(t)",
-    #),
+    :divergence => (
+        title  = "Divergence for different configurations",
+        xlabel = "t",
+        ylabel = "Face-average",
+    ),
+    :energy_evolution => (
+        title = "Energy evolution for different configurations",
+        xlabel = "t",
+        ylabel = "E(t)",
+    ),
+    :energy_evolution_hist => (
+        title = "Energy histogram for different configurations",
+        xlabel = "frequency",
+        ylabel = "E(t)",
+    ),
+    :energy_spectra => (
+        title  = "Energy spectra",
+    ),
+    :training_time => (
+        title  = "Training time for different configurations",
+        xlabel = "Model",
+        ylabel = "Training time (s) (per iteration)",
+    ),
+    :training_comptime => (
+        title  = "Training time for different configurations",
+        xlabel = "Model",
+        ylabel = "Full Training time (s)",
+    ),
+    :inference_time => (
+        title  = "Inference time for different configurations",
+        xlabel = "Model",
+        ylabel = "Inference time (s)",
+    ),
+    :num_parameters => (
+        title  = "Number of parameters for different configurations",
+        xlabel = "Model",
+        ylabel = "Number of parameters",
+    ),
+    :eprior => (
+        title  = "A-prior error for different configurations",
+        xlabel = "Model",
+        ylabel = "A-prior error",
+    ),
+    :epost => (
+        title  = "A-posteriori error for different configurations",
+        xlabel = "Model",
+        ylabel = "A-posteriori error",
+    ),
+    :epost_vs_t => (
+        title = "A-posteriori error as a function of time",
+        xlabel = "t",
+        ylabel = L"e_{M}(t)",
+    ),
 )
 
 dns_seeds = splitseed(123456, 8)
@@ -176,7 +197,7 @@ dns_seeds = splitseed(16, 8)
 #dns_seeds = [0x185efb6b]
 
 for key in keys(plot_labels)
-    @info "Plotting $key"
+    @info "********************  Plotting $key"
 
     # Create the figure
     fig = Figure(; size = (950, 600))
@@ -209,16 +230,6 @@ for key in keys(plot_labels)
                     continue
                 end
 
-                #if !check_necessary_files(
-                #    outdir,
-                #    closure_name,
-                #    nles,
-                #    Φ,
-                #    projectorders[1],
-                #)
-                #    @error "Some files are missing for configuration $conf_file. Skipping"
-                #    continue
-                #end
 
                 # make sure each combination has a consistent color
                 #TODO this function should be tested
@@ -315,9 +326,13 @@ for key in keys(plot_labels)
                         error_file, closure_name, nles, ax, color, PLOT_STYLES
                     )
                 elseif key == :dns_solution
-                    data = load("output/kolmogorov/test_dns_proj.jld2")
-                    plot_dns_solution(
-                        data, ax, 5, joinpath(compdir, "projection_dns_test_nles=$(nles).gif")
+                    infile = "output/kolmogorov/test_dns_proj.jld2"
+                    outfile = joinpath(
+                        compdir, "projection_dns_test_nles=$(nles).gif"
+                    )
+
+                    isfile(outfile) || plot_dns_solution(
+                        ax, 5, infile, outfile
                     )
                 else
                     @error "Unknown plot type: $key"
