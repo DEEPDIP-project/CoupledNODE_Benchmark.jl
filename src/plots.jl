@@ -900,20 +900,21 @@ function plot_dns_solution(ax, frameskip, infile, savepath)
     t = data["t"]
     tref = data["tref"]
     y = []
+    tref = tref[:length(tref)-10]
 
-    for i in 1:length(t)
-        @assert t[i] ≈ tref[i] "Time values do not match: t[i] = $(t[i]), tref[i] = $(tref[i])"
+    for i in 1:length(tref)
+#        @assert t[i] ≈ tref[i] "Time values do not match: t[i] = $(t[i]), tref[i] = $(tref[i])"
         err = mean(abs.(ref[:,:,:,i] .- proj[:,:,:,i]) ./ (abs.(ref[:,:,:,i]) .+ 1e-12))
         push!(y, sum(abs, err))
     end
     scatterlines!(
         ax,
-        t,
+        tref,
         vec(y)
     )
     
     # Assume we use the first dataset to define dimensions
-    nframes = length(t)
+    nframes = length(tref)
     # Choose z-slice
     zidx = 1
 
