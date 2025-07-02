@@ -74,8 +74,8 @@ else
 end
 logfile = joinpath(logdir, logfile)
 # check if I am planning to use Enzyme, in which case I can not touch the logger
-if occursin("Enzyme", conf["priori"]["ad_type"]) || 
-   occursin("Enzyme", conf["posteriori"]["ad_type"])
+if (haskey(conf["priori"], "ad_type") && occursin("Enzyme", conf["priori"]["ad_type"])) || 
+   (haskey(conf["posteriori"], "ad_type") && occursin("Enzyme", conf["posteriori"]["ad_type"]))
     @warn "Enzyme is used, so logger will not be set to ConsoleLogger"
 else
     setsnelliuslogger(logfile)
@@ -259,14 +259,6 @@ closure_INS, θ_INS = NeuralClosure.cnn(;
 #end
 
 ########################################################################## #src
-#@warn "setting global logger to ConsoleLogger"
-#using Logging
-#global_logger(ConsoleLogger()) # or any other simple logger
-#
-#using Enzyme
-#Enzyme.API.strictAliasing!(false)
-#
-#Enzyme.Compiler.VERBOSE_ERRORS[] = true
 
 # ## Training
 
