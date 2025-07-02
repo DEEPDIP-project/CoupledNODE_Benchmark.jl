@@ -22,3 +22,5 @@
 sbatch -J owr job_a100.sh configs/snellius64/cnn_owr.yaml
 sbatch -J bs3 job_a100.sh configs/snellius64/cnn_bs3.yaml
 #sbatch -J composite job_a100.sh configs/snellius64/cnn_composite.yaml
+
+sbatch -J att job_a100_extra.sh configs/snellius64/att_base.yaml

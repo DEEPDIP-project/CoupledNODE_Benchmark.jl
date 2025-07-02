@@ -78,7 +78,13 @@ else
     logfile = "log_$(Dates.now()).out"
 end
 logfile = joinpath(logdir, logfile)
-setsnelliuslogger(logfile)
+# check if I am planning to use Enzyme, in which case I can not touch the logger
+if (haskey(conf["priori"], "ad_type") && occursin("Enzyme", conf["priori"]["ad_type"])) || 
+   (haskey(conf["posteriori"], "ad_type") && occursin("Enzyme", conf["posteriori"]["ad_type"]))
+    @warn "Enzyme is used, so logger will not be set to ConsoleLogger"
+else
+    setsnelliuslogger(logfile)
+end
 
 @info "# A-posteriori analysis: Forced turbulence (2D)"
 
@@ -98,6 +104,7 @@ using CairoMakie
 using CoupledNODE: loss_priori_lux, create_loss_post_lux
 using CUDA
 using DifferentialEquations
+using Enzyme
 using IncompressibleNavierStokes.RKMethods
 using JLD2
 using LaTeXStrings
@@ -111,6 +118,7 @@ using OptimizationOptimJL
 using OptimizationCMAEvolutionStrategy
 using ParameterSchedulers
 using Random
+using SciMLSensitivity
 
 
 # ## Random number seeds
@@ -173,6 +181,22 @@ dns_seeds = splitseed(seeds.dns, ntrajectory)
 dns_seeds_train = dns_seeds[1:ntrajectory-2]
 dns_seeds_valid = dns_seeds[ntrajectory-1:ntrajectory-1]
 dns_seeds_test = dns_seeds[ntrajectory:ntrajectory]
+
+doprojtest = conf["projtest"]
+if doprojtest && taskid == 1
+    testprojfile = joinpath(outdir, "test_dns_proj.jld2")
+    if isfile(testprojfile)
+        @info "Test DNS projection file already exists."
+    else
+        create_test_dns_proj(
+            nchunks = 8000;
+            params...,
+            rng = Xoshiro(2406),
+            backend = backend,
+            filename = testprojfile,
+        )
+    end
+end
 
 # Create data
 docreatedata = conf["docreatedata"]
@@ -247,7 +271,7 @@ let
     u = randn(T, params.nles[1], params.nles[1], 2, 10) |> device
     θ = θ_start |> device
     closure(u, θ, st)
-    gradient(θ -> sum(closure(u, θ, st)[1]), θ)
+    Zygote.gradient(θ -> sum(closure(u, θ, st)[1]), θ)
     clean()
 end
 
@@ -299,7 +323,8 @@ let
         plot_train = conf["priori"]["plot_train"],
         nepoch,
         dataproj = conf["dataproj"],
-        λ = conf["priori"]["lambda"],
+        λ = haskey(conf["priori"], "λ") ? eval(Meta.parse(conf["priori"]["λ"])) : nothing,
+        ad_type = haskey(conf["priori"], "ad_type") ? eval(Meta.parse(conf["priori"]["ad_type"])) : Optimization.AutoZygote(),
     )
 end
 end
@@ -412,7 +437,9 @@ let
         sensealg = sensealg,
         sciml_solver = sciml_solver,
         dataproj = conf["dataproj"],
-        λ = conf["posteriori"]["lambda"],
+        λ = haskey(conf["posteriori"], "λ") ? eval(Meta.parse(conf["posteriori"]["λ"])) : nothing,
+        multishoot_nt = haskey(conf["posteriori"], "multishoot_nt") ? conf["posteriori"]["multishoot_nt"] : 0,
+        ad_type = haskey(conf["posteriori"], "ad_type") ? eval(Meta.parse(conf["posteriori"]["ad_type"])) : Optimization.AutoZygote(),
     )
 end
 end
