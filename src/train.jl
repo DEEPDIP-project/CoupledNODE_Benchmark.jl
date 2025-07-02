@@ -113,6 +113,7 @@ function trainprior(;
     nepoch,
     dataproj,
     λ = nothing,
+    ad_type
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -212,6 +213,7 @@ function trainprior(;
                 dataloader_prior,
                 loss;
                 tstate = trainstate,
+                ad_type = ad_type,
                 nepochs = nepochs_left,
                 alg = opt,
                 cpu = !CUDA.functional(),
@@ -278,6 +280,7 @@ function trainpost(;
     dataproj,
     λ = nothing,
     multishoot_nt = 0,
+    ad_type
 )
     device(x) = adapt(params.backend, x)
     itotal = 0
@@ -399,6 +402,7 @@ function trainpost(;
                 st,
                 dataloader_post,
                 loss;
+                ad_type = ad_type,
                 tstate = trainstate,
                 nepochs = nepochs_left,
                 alg = opt,

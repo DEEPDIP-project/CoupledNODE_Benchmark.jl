@@ -1,33 +1,32 @@
 docreatedata: true
 docomp: true
 ntrajectory: 8
-T: "Float32"
+T: "Float64"
 dataproj: true
-projtest: true
+projtest: false
 params:
   D: 2
   lims: [0.0, 1.0]
   Re: 6000.0
-  tburn: 0.1
-  tsim: 0.5
+  tburn: 0.5
+  tsim: 5.0
   savefreq: 50
-  ndns: 128
-  nles: [32]
+  ndns: 4096
+  nles: [64]
   filters: ["FaceAverage()"]
   icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
-    #method: "RKMethods.Wray3(; T)"
   method: "RKMethods.RK44(; T)"
   bodyforce: "(dim, x, y, t) -> (dim == 1) * 5 * sinpi(8 * y)"
   issteadybodyforce: true
   processors: "(; log = timelogger(; nupdate=100))"
   Δt: 0.00005
 seeds:
-  dns: 16
+  dns: 123456
   θ_start: 234
   prior: 345
   post: 456
 closure:
-  name: "Test"
+  name: "BS3"
   type: cnn
   radii: [2, 2, 2, 2, 2]
   channels: [24, 24, 24, 24, 2]
@@ -35,8 +34,9 @@ closure:
   use_bias: [true, true, true, true, false]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
-  dotrain: false
-  nepoch: 1000
+  reuse: "Base"
+  dotrain: true
+  nepoch: 50000
   batchsize: 64
   opt: "Adam(T(1.0e-3))"
   do_plot: false
@@ -45,14 +45,13 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 100
+  nepoch: 3000
   opt: "Adam(T(1.0e-4))"
   nunroll: 5
   nunroll_valid: 10
-  nsamples: 1 
+  nsamples: 5
   dt: 0.0001
   do_plot: false
   plot_train: false
   lambda: 0.00000005
-  sciml_solver: "CompositeAlgorithm((Tsit5(), Vern7()), integrator -> Int(integrator.dt < 0.001) + 1)"
-  sensealg: "ZygoteAdjoint()"
+  sciml_solver: "BS3()"

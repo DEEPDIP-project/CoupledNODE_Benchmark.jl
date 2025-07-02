@@ -73,7 +73,13 @@ else
     logfile = "log_$(Dates.now()).out"
 end
 logfile = joinpath(logdir, logfile)
-setsnelliuslogger(logfile)
+# check if I am planning to use Enzyme, in which case I can not touch the logger
+if occursin("Enzyme", conf["priori"]["ad_type"]) || 
+   occursin("Enzyme", conf["posteriori"]["ad_type"])
+    @warn "Enzyme is used, so logger will not be set to ConsoleLogger"
+else
+    setsnelliuslogger(logfile)
+end
 
 @info "# A-posteriori analysis: Forced turbulence (2D)"
 
@@ -93,6 +99,7 @@ using CairoMakie
 using CoupledNODE: loss_priori_lux, create_loss_post_lux
 using CUDA
 using DifferentialEquations
+using Enzyme
 using IncompressibleNavierStokes.RKMethods
 using JLD2
 using LaTeXStrings
@@ -252,6 +259,14 @@ closure_INS, θ_INS = NeuralClosure.cnn(;
 #end
 
 ########################################################################## #src
+#@warn "setting global logger to ConsoleLogger"
+#using Logging
+#global_logger(ConsoleLogger()) # or any other simple logger
+#
+#using Enzyme
+#Enzyme.API.strictAliasing!(false)
+#
+#Enzyme.Compiler.VERBOSE_ERRORS[] = true
 
 # ## Training
 
@@ -298,7 +313,8 @@ let
         plot_train = conf["priori"]["plot_train"],
         nepoch = nepoch,
         dataproj = conf["dataproj"],
-        λ = haskey(conf["priori"], "λ") ? eval(Meta.parse(conf["priori"]["λ"])) : nothing
+        λ = haskey(conf["priori"], "λ") ? eval(Meta.parse(conf["priori"]["λ"])) : nothing,
+        ad_type = haskey(conf["priori"], "ad_type") ? eval(Meta.parse(conf["priori"]["ad_type"])) : Optimization.AutoZygote(),
     )
 end
 end
@@ -413,6 +429,7 @@ let
         dataproj = conf["dataproj"],
         λ = haskey(conf["posteriori"], "λ") ? eval(Meta.parse(conf["posteriori"]["λ"])) : nothing,
         multishoot_nt = haskey(conf["posteriori"], "multishoot_nt") ? conf["posteriori"]["multishoot_nt"] : 0,
+        ad_type = haskey(conf["posteriori"], "ad_type") ? eval(Meta.parse(conf["posteriori"]["ad_type"])) : Optimization.AutoZygote(),
     )
 end
 end

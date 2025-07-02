@@ -24,6 +24,7 @@ using Lux
 using MLUtils
 using NeuralClosure
 using Observables
+using Optimization
 using Optimisers
 using Random
 using Statistics: mean
