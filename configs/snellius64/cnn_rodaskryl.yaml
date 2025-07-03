@@ -36,7 +36,7 @@ closure:
 priori:
   reuse: "Base"
   dotrain: true
-  nepoch: 50000
+  nepoch: 15000
   batchsize: 64
   opt: "Adam(T(1.0e-3))"
   do_plot: false
@@ -45,7 +45,7 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 3000
+  nepoch: 50
   opt: "Adam(T(1.0e-4))"
   nunroll: 5
   nunroll_valid: 10
@@ -54,4 +54,4 @@ posteriori:
   do_plot: false
   plot_train: false
   lambda: 0.00000005
-  sciml_solver: "Rodas5P(linsolve = KrylovJL_GMRES(), autodiff = AutoFiniteDiff())"
+  sciml_solver: "Rodas5P(linsolve = KrylovJL_GMRES())"

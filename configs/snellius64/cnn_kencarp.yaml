@@ -36,7 +36,7 @@ closure:
 priori:
   reuse: "Base"
   dotrain: true
-  nepoch: 50000
+  nepoch: 15000
   batchsize: 64
   opt: "Adam(T(1.0e-3))"
   do_plot: false
@@ -45,13 +45,13 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 3000
+  nepoch: 10
   opt: "Adam(T(1.0e-4))"
   nunroll: 5
-  nunroll_valid: 10
-  nsamples: 5
+  nunroll_valid: 50
+  nsamples: 1
   dt: 0.0001
   do_plot: false
   plot_train: false
   lambda: 0.00000005
-  sciml_solver: "KenCarp4(autodiff = AutoFiniteDiff())"
+  sciml_solver: "KenCarp3()"

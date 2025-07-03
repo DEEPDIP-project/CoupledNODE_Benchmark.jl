@@ -43,7 +43,7 @@ closure:
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 50000
+  nepoch: 15000
   batchsize: 64
   opt: "Adam(T(1.0e-3))"
   do_plot: false
