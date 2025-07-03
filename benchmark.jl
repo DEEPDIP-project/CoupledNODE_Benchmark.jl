@@ -314,7 +314,7 @@ for key in keys(plot_labels)
                         outdir, closure_name, "eprior_nles=$(nles).jld2"
                     )
                     bar_label, bar_position = plot_error(
-                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES; outdir=outdir
+                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES; outdir=outdir, Φ=Φ, projectorders=projectorders
                     )
                     append!(bar_positions, bar_position)
                     append!(bar_labels, bar_label)
@@ -323,7 +323,7 @@ for key in keys(plot_labels)
                         outdir, closure_name, "epost_nles=$(nles).jld2"
                     )
                     bar_label, bar_position = plot_error(
-                        error_file, closure_name, nles, data_index_v, col_index, ax, color, PLOT_STYLES
+                        error_file, closure_name, nles, data_index_v, col_index, ax, color, PLOT_STYLES; outdir=outdir, Φ=Φ, projectorders=projectorders
                     )
                     append!(bar_positions, bar_position)
                     append!(bar_labels, bar_label)

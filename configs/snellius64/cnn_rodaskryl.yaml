@@ -48,10 +48,10 @@ posteriori:
   nepoch: 50
   opt: "Adam(T(1.0e-4))"
   nunroll: 5
-  nunroll_valid: 10
-  nsamples: 5
+  nunroll_valid: 50
+  nsamples: 1
   dt: 0.0001
   do_plot: false
   plot_train: false
   lambda: 0.00000005
-  sciml_solver: "Rodas5P(linsolve = KrylovJL_GMRES())"
+  sciml_solver: "Rodas3(linsolve = KrylovJL_GMRES(), autodiff = AutoFiniteDiff())"

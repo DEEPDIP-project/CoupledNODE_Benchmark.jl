@@ -650,19 +650,6 @@ function plot_training_time(
         color = color, # dont change this color
     )
     
-    # Save training time data to CSV (create a minimal error data structure if needed)
-    # Try to find the error file to get real error data, otherwise create dummy data
-    error_file_path = joinpath(dirname(outdir), closure_name, "epost_nles=$(nles).jld2")
-    if isfile(error_file_path)
-        error_data = namedtupleload(error_file_path)
-        _save_error_data_to_csv(error_file_path, error_data, closure_name, nles, 1, model_index, training_time_post; outdir=outdir)
-    else
-        # Create a dummy error data structure and save training time only
-        dummy_error_data = (model_post = [NaN],)  # Use NaN as placeholder for missing error
-        dummy_error_file = joinpath(dirname(outdir), closure_name, "dummy_epost.jld2")
-        _save_error_data_to_csv(dummy_error_file, dummy_error_data, closure_name, nles, 1, model_index, training_time_post; outdir=outdir)
-    end
-    
     return labels, labels_positions
 
 end
@@ -776,6 +763,8 @@ function plot_error(
     color,
     PLOT_STYLES;
     outdir=nothing,
+    Φ=nothing,
+    projectorders=nothing,
 )
     error_data = namedtupleload(error_file)
 
@@ -827,43 +816,38 @@ function plot_error(
     )
 
     # Store data in CSV format
-    _save_error_data_to_csv(error_file, error_data, closure_name, nles, data_index, model_index; outdir=outdir)
+    if occursin("post", error_file) 
+        _save_error_data_to_csv(error_data, closure_name, data_index; outdir=outdir, nles=nles, Φ=Φ, projectorders=projectorders)
+    end
 
     return labels, labels_positions
 end
 
-function _save_error_data_to_csv(error_file, error_data, closure_name, nles, data_index, model_index, training_time_post=nothing; outdir=nothing)
-    # Create single CSV file in the comparison directory
-    if outdir === nothing
-        # If outdir not provided, try to derive it from error_file path
-        # error_file is typically: basedir/output/kolmogorov/ClosureName/epost_nles=X.jld2
-        # We want: basedir/output/kolmogorov/comparison/a_posteriori_errors.csv
-        error_dir = dirname(error_file)  # .../output/kolmogorov/ClosureName
-        outdir = dirname(error_dir)      # .../output/kolmogorov
-    end
-    
+function _save_error_data_to_csv(error_data, closure_name, data_index; outdir, nles=nothing, Φ=nothing, projectorders=nothing)
     comparison_dir = joinpath(outdir, "comparison")
     # Ensure comparison directory exists
     ispath(comparison_dir) || mkpath(comparison_dir)
     csv_file = joinpath(comparison_dir, "a_posteriori_errors.csv")
     
     # Get a posteriori (post) error data, handle case where it might be missing
-    post_error = nothing
-    if haskey(error_data, :model_post)
+    post_error = error_data.model_post[data_index]
+    
+    # Try to read training time data from training files
+    training_time_post = nothing
+    if nles !== nothing && Φ !== nothing && projectorders !== nothing
         try
-            # Handle both scalar indices and CartesianIndex
-            potential_error = error_data.model_post[data_index]
-            if !isnan(potential_error)
-                post_error = potential_error
-            end
-        catch ex
-            if isa(ex, BoundsError)
-                # Index is out of bounds, leave post_error as nothing
-                @warn "data_index $data_index is out of bounds for model_post array"
+            if closure_name == "INS.jl"
+                posttraining = namedtupleload(
+                    Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]),
+                )
+                training_time_post = posttraining.single_stored_object.time_per_epoch
             else
-                # Other indexing errors, leave post_error as nothing
-                @warn "Error accessing model_post with index $data_index: $ex"
+                posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
+                training_time_post = posttraining[1].time_per_epoch
             end
+            training_time_post = round(training_time_post; digits = 3)
+        catch ex
+            @warn "Could not read training time data for $closure_name: $ex"
         end
     end
     
