@@ -649,6 +649,20 @@ function plot_training_time(
         label = "$closure_name (n = $nles)",
         color = color, # dont change this color
     )
+    
+    # Save training time data to CSV (create a minimal error data structure if needed)
+    # Try to find the error file to get real error data, otherwise create dummy data
+    error_file_path = joinpath(dirname(outdir), closure_name, "epost_nles=$(nles).jld2")
+    if isfile(error_file_path)
+        error_data = namedtupleload(error_file_path)
+        _save_error_data_to_csv(error_file_path, error_data, closure_name, nles, 1, model_index, training_time_post; outdir=outdir)
+    else
+        # Create a dummy error data structure and save training time only
+        dummy_error_data = (model_post = [NaN],)  # Use NaN as placeholder for missing error
+        dummy_error_file = joinpath(dirname(outdir), closure_name, "dummy_epost.jld2")
+        _save_error_data_to_csv(dummy_error_file, dummy_error_data, closure_name, nles, 1, model_index, training_time_post; outdir=outdir)
+    end
+    
     return labels, labels_positions
 
 end
@@ -760,7 +774,8 @@ function plot_error(
     model_index,
     ax,
     color,
-    PLOT_STYLES,
+    PLOT_STYLES;
+    outdir=nothing,
 )
     error_data = namedtupleload(error_file)
 
@@ -811,7 +826,114 @@ function plot_error(
         gap = bar_gap,
     )
 
+    # Store data in CSV format
+    _save_error_data_to_csv(error_file, error_data, closure_name, nles, data_index, model_index; outdir=outdir)
+
     return labels, labels_positions
+end
+
+function _save_error_data_to_csv(error_file, error_data, closure_name, nles, data_index, model_index, training_time_post=nothing; outdir=nothing)
+    # Create single CSV file in the comparison directory
+    if outdir === nothing
+        # If outdir not provided, try to derive it from error_file path
+        # error_file is typically: basedir/output/kolmogorov/ClosureName/epost_nles=X.jld2
+        # We want: basedir/output/kolmogorov/comparison/a_posteriori_errors.csv
+        error_dir = dirname(error_file)  # .../output/kolmogorov/ClosureName
+        outdir = dirname(error_dir)      # .../output/kolmogorov
+    end
+    
+    comparison_dir = joinpath(outdir, "comparison")
+    # Ensure comparison directory exists
+    ispath(comparison_dir) || mkpath(comparison_dir)
+    csv_file = joinpath(comparison_dir, "a_posteriori_errors.csv")
+    
+    # Get a posteriori (post) error data, handle case where it might be missing
+    post_error = nothing
+    if haskey(error_data, :model_post)
+        try
+            # Handle both scalar indices and CartesianIndex
+            potential_error = error_data.model_post[data_index]
+            if !isnan(potential_error)
+                post_error = potential_error
+            end
+        catch ex
+            if isa(ex, BoundsError)
+                # Index is out of bounds, leave post_error as nothing
+                @warn "data_index $data_index is out of bounds for model_post array"
+            else
+                # Other indexing errors, leave post_error as nothing
+                @warn "Error accessing model_post with index $data_index: $ex"
+            end
+        end
+    end
+    
+    # Read existing data if file exists
+    existing_data = Dict{String, Tuple{Union{Float64, Nothing}, Union{Float64, Nothing}}}()
+    file_exists = isfile(csv_file)
+    
+    if file_exists
+        # Read existing data into a dictionary
+        lines = readlines(csv_file)
+        if length(lines) > 1
+            header = split(lines[1], ",")
+            has_training_time = length(header) >= 3 && strip(header[3]) == "training_time_post"
+            
+            for line in lines[2:end]  # Skip header
+                if !isempty(strip(line))
+                    parts = split(line, ",")
+                    if length(parts) >= 2
+                        existing_closure_name = strip(parts[1])
+                        
+                        # Parse error (might be empty)
+                        existing_error = nothing
+                        if !isempty(strip(parts[2]))
+                            existing_error = parse(Float64, strip(parts[2]))
+                        end
+                        
+                        # Parse training time (might be empty)
+                        existing_training_time = nothing
+                        if has_training_time && length(parts) >= 3 && !isempty(strip(parts[3]))
+                            existing_training_time = parse(Float64, strip(parts[3]))
+                        end
+                        
+                        existing_data[existing_closure_name] = (existing_error, existing_training_time)
+                    end
+                end
+            end
+        end
+    end
+    
+    # Update or add the current closure_name, preserving existing values when new ones are not provided
+    current_error = post_error
+    current_training_time = training_time_post
+    
+    if haskey(existing_data, closure_name)
+        # Keep existing values if new ones are not provided (nothing/missing)
+        if post_error === nothing
+            current_error = existing_data[closure_name][1]
+        end
+        if training_time_post === nothing
+            current_training_time = existing_data[closure_name][2]
+        end
+    end
+    
+    existing_data[closure_name] = (current_error, current_training_time)
+    
+    # Write the complete data back to file
+    open(csv_file, "w") do io
+        # Write header
+        println(io, "closure_name,a_posteriori_error,training_time_post")
+        
+        # Write all data rows (sorted by closure_name for consistency)
+        for closure in sort(collect(keys(existing_data)))
+            error_val, training_time_val = existing_data[closure]
+            error_str = error_val === nothing ? "" : string(error_val)
+            training_time_str = training_time_val === nothing ? "" : string(training_time_val)
+            println(io, join([closure, error_str, training_time_str], ","))
+        end
+    end
+    
+    @info "Data saved to CSV: $csv_file (closure_name: $closure_name, error: $(current_error === nothing ? "missing" : current_error), training_time: $(current_training_time === nothing ? "missing" : current_training_time))"
 end
 
 
@@ -892,15 +1014,14 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
     return nothing
 end
 
-function plot_dns_solution(ax, frameskip, infile, savepath) 
+function plot_dns_solution(ax, frameskip, infile, savepath; zidx=1, frame_to_save=300) 
     data = load(infile)
-    # use inside
     ref = data["uref"]
     proj = data["u"]
     t = data["t"]
     tref = data["tref"]
     y = []
-    tref = tref[:length(tref)-10]
+    tref = tref[1:(length(tref)-1)]
 
     for i in 1:length(tref)
 #        @assert t[i] ≈ tref[i] "Time values do not match: t[i] = $(t[i]), tref[i] = $(tref[i])"
@@ -915,17 +1036,46 @@ function plot_dns_solution(ax, frameskip, infile, savepath)
     
     # Assume we use the first dataset to define dimensions
     nframes = length(tref)
-    # Choose z-slice
-    zidx = 1
 
-    fig = Figure(resolution = (900, 300))
+    # Save specified frame as a separate PNG first
+    if nframes >= frame_to_save
+        t_save = t[frame_to_save]
+        frame_fig = Figure(resolution = (1200, 300))
+        frame_ax1 = Makie.Axis(frame_fig[1, 1], title="Reference (t=$t_save s)")
+        frame_ax2 = Makie.Axis(frame_fig[1, 2], title="Projected (t=$t_save s)")
+        frame_ax3 = Makie.Axis(frame_fig[1, 3], title="Diff (t=$t_save s)")
+        
+        u_ref_frame = ref[:, :, zidx, frame_to_save]
+        u_proj_frame = proj[:, :, zidx, frame_to_save]
+        diff_frame = u_ref_frame - u_proj_frame
+        
+        heatmap!(frame_ax1, u_ref_frame)
+        heatmap!(frame_ax2, u_proj_frame)
+        hm_diff = heatmap!(frame_ax3, diff_frame, colormap=:reds)
+        
+        # Add colorbar for the difference plot
+        Colorbar(frame_fig[1, 4], hm_diff, label="Difference")
+        
+        # Create PNG filename from GIF savepath
+        png_savepath = replace(savepath, r"\.(gif|GIF)$" => "_frame$(frame_to_save).png")
+        save(png_savepath, frame_fig)
+        println("Frame $frame_to_save PNG saved to $png_savepath")
+    else
+        println("Warning: Only $nframes frames available, cannot save frame $frame_to_save")
+    end
+
+    # Now create the GIF animation
+    fig = Figure(resolution = (1200, 300))
     ax1 = Makie.Axis(fig[1, 1], title="Reference")
     ax2 = Makie.Axis(fig[1, 2], title="Projected")
     ax3 = Makie.Axis(fig[1, 3], title="Diff")
 
     hm1 = heatmap!(ax1, zeros(size(ref, 1), size(ref, 2)))
     hm2 = heatmap!(ax2, zeros(size(ref, 1), size(ref, 2)))
-    hm3 = heatmap!(ax3, zeros(size(ref, 1), size(ref, 2)))
+    hm3 = heatmap!(ax3, zeros(size(ref, 1), size(ref, 2)), colormap=:reds)
+    
+    # Add colorbar for the difference plot
+    Colorbar(fig[1, 4], hm3, label="Difference")
 
     Makie.record(fig, savepath, 1:frameskip:nframes) do t
         u_ref_t = ref[:, :, zidx, t]

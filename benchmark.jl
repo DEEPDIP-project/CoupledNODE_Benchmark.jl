@@ -21,6 +21,8 @@ using Glob
 exclude_patterns = ["att", "cno", "int", "back", "rk4", "cnn_1" ]
 exclude_patterns = ["att", "cno" ]
 include_patterns = ["base"] 
+include_patterns = []
+exclude_patterns = []
 
 if !isempty(include_patterns)
     @warn "Including only configurations with patterns: $(include_patterns)"
@@ -129,6 +131,11 @@ colors_list = [
 
 # Loop over plot types and configurations
 plot_labels = Dict(
+    :dns_solution => (
+        title  = "DNS solution for different configurations",
+        xlabel = "t",
+        ylabel = L"\frac{|u(t)-u_{proj}(t)|}{|u(t)|}",
+    ),
     :prior_hist => (
         title  = "A-priori training history for different configurations",
         xlabel = "Iteration",
@@ -138,11 +145,6 @@ plot_labels = Dict(
         title  = "A-posteriori training history for different configurations",
         xlabel = "Iteration",
         ylabel = "DCF",
-    ),
-    :dns_solution => (
-        title  = "DNS solution for different configurations",
-        xlabel = "t",
-        ylabel = L"\frac{|u(t)-u_{proj}(t)|}{|u(t)|}",
     ),
     :divergence => (
         title  = "Divergence for different configurations",
@@ -161,21 +163,6 @@ plot_labels = Dict(
     ),
     :energy_spectra => (
         title  = "Energy spectra",
-    ),
-    :training_time => (
-        title  = "Training time for different configurations",
-        xlabel = "Model",
-        ylabel = "Training time (s) (per iteration)",
-    ),
-    :training_comptime => (
-        title  = "Training time for different configurations",
-        xlabel = "Model",
-        ylabel = "Full Training time (s)",
-    ),
-    :inference_time => (
-        title  = "Inference time for different configurations",
-        xlabel = "Model",
-        ylabel = "Inference time (s)",
     ),
     :num_parameters => (
         title  = "Number of parameters for different configurations",
@@ -196,6 +183,21 @@ plot_labels = Dict(
         title = "A-posteriori error as a function of time",
         xlabel = "t",
         ylabel = L"e_{M}(t)",
+    ),
+    :training_time => (
+        title  = "Training time for different configurations",
+        xlabel = "Model",
+        ylabel = "Training time (s) (per iteration)",
+    ),
+    :training_comptime => (
+        title  = "Training time for different configurations",
+        xlabel = "Model",
+        ylabel = "Full Training time (s)",
+    ),
+    :inference_time => (
+        title  = "Inference time for different configurations",
+        xlabel = "Model",
+        ylabel = "Inference time (s)",
     ),
 )
 
@@ -312,7 +314,7 @@ for key in keys(plot_labels)
                         outdir, closure_name, "eprior_nles=$(nles).jld2"
                     )
                     bar_label, bar_position = plot_error(
-                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES
+                        error_file, closure_name, nles, data_index, col_index, ax, color, PLOT_STYLES; outdir=outdir
                     )
                     append!(bar_positions, bar_position)
                     append!(bar_labels, bar_label)
