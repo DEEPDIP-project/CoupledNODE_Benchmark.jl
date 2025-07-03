@@ -531,6 +531,7 @@ end
 
 let
     tsave = [5, 10, 25, 50, 100, 200, 500, 750, 1000, 1500, 2000]
+    tsave = [5, 10, 25, 50, 100, 200, 500, 750, 1000]
     tsave .-=1
     s = (length(params.nles), length(params.filters), length(projectorders))
     swt = (length(params.nles), length(params.filters), length(projectorders), length(tsave))

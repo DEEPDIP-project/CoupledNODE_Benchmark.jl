@@ -20,7 +20,7 @@ ispath(compdir) || mkpath(compdir)
 using Glob
 exclude_patterns = ["att", "cno", "int", "back", "rk4", "cnn_1" ]
 exclude_patterns = ["att", "cno" ]
-include_patterns = ["proj"] 
+include_patterns = ["base"] 
 
 if !isempty(include_patterns)
     @warn "Including only configurations with patterns: $(include_patterns)"
