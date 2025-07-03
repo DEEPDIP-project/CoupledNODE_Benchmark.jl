@@ -9,6 +9,7 @@
 #sbatch -J CNN_proj job_a100.sh configs/snellius/cnn_proj.yaml
 #sbatch -J CNN_nopr job_a100.sh configs/snellius/cnn_noproj.yaml
 
+sbatch -J base job_a100.sh configs/snellius64/cnn_base.yaml
 #sbatch -J backsolve job_a100.sh configs/snellius64/cnn_backsolve.yaml
 #sbatch -J gauss job_a100.sh configs/snellius64/cnn_gauss.yaml
 #sbatch -J interp job_a100.sh configs/snellius64/cnn_interp.yaml
