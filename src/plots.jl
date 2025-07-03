@@ -1025,9 +1025,9 @@ function plot_dns_solution(ax, frameskip, infile, savepath; zidx=1, frame_to_sav
     if nframes >= frame_to_save
         t_save = t[frame_to_save]
         frame_fig = Figure(resolution = (1200, 300))
-        frame_ax1 = Makie.Axis(frame_fig[1, 1], title="Reference (t=$t_save s)")
-        frame_ax2 = Makie.Axis(frame_fig[1, 2], title="Projected (t=$t_save s)")
-        frame_ax3 = Makie.Axis(frame_fig[1, 3], title="Diff (t=$t_save s)")
+        frame_ax1 = Makie.Axis(frame_fig[1, 1], title="Reference (t=$t_save s)", xlabel="", ylabel="")
+        frame_ax2 = Makie.Axis(frame_fig[1, 2], title="Projected (t=$t_save s)", xlabel="", ylabel="")
+        frame_ax3 = Makie.Axis(frame_fig[1, 3], title="Diff (t=$t_save s)", xlabel="", ylabel="")
         
         u_ref_frame = ref[:, :, zidx, frame_to_save]
         u_proj_frame = proj[:, :, zidx, frame_to_save]
@@ -1050,9 +1050,9 @@ function plot_dns_solution(ax, frameskip, infile, savepath; zidx=1, frame_to_sav
 
     # Now create the GIF animation
     fig = Figure(resolution = (1200, 300))
-    ax1 = Makie.Axis(fig[1, 1], title="Reference")
-    ax2 = Makie.Axis(fig[1, 2], title="Projected")
-    ax3 = Makie.Axis(fig[1, 3], title="Diff")
+    ax1 = Makie.Axis(fig[1, 1], title="Reference", xlabel="", ylabel="")
+    ax2 = Makie.Axis(fig[1, 2], title="Projected", xlabel="", ylabel="")
+    ax3 = Makie.Axis(fig[1, 3], title="Diff", xlabel="", ylabel="")
 
     hm1 = heatmap!(ax1, zeros(size(ref, 1), size(ref, 2)))
     hm2 = heatmap!(ax2, zeros(size(ref, 1), size(ref, 2)))
@@ -1071,4 +1071,84 @@ function plot_dns_solution(ax, frameskip, infile, savepath; zidx=1, frame_to_sav
     end
 
     println("GIF saved to $savepath")
+end
+
+
+# Function to read and plot comparison data from CSV file
+function plot_csv_comparison(csv_path::String, outdir::String, colors_list)
+    @info "Reading comparison data from $csv_path"
+    
+    # Check if file exists
+    if !isfile(csv_path)
+        @error "File $csv_path not found"
+        return
+    end
+    
+    # Read CSV data manually
+    lines = readlines(csv_path)
+    if length(lines) < 2
+        @error "CSV file must have at least a header and one data row"
+        return
+    end
+    
+    # Skip header and parse data
+    closure_names = String[]
+    a_posteriori_errors = Float64[]
+    training_times = Float64[]
+    
+    for line in lines[2:end]  # Skip header
+        if !isempty(strip(line))
+            parts = split(line, ',')
+            if length(parts) >= 3
+                push!(closure_names, strip(parts[1]))
+                push!(a_posteriori_errors, parse(Float64, strip(parts[2])))
+                push!(training_times, parse(Float64, strip(parts[3])))
+            end
+        end
+    end
+    
+    @info "Found $(length(closure_names)) models in CSV"
+    
+    # Create a simple comparison plot
+    fig = Figure(size=(800, 600))
+    ax = CairoMakie.Axis(fig[1, 1], 
+        title="Model Performance Comparison",
+        xlabel="A Posteriori Error (t=0.5 s)", 
+        ylabel="Training Time per epoch (s)")
+
+
+    # Color each point differently
+    colors = [colors_list[i % length(colors_list) + 1] for i in 1:length(closure_names)]
+    
+    scatter!(ax, a_posteriori_errors, training_times, 
+        color=colors, markersize=20)
+    
+    # Add model name labels
+    for (i, name) in enumerate(closure_names)
+        text!(ax, a_posteriori_errors[i], training_times[i], 
+            text=name, fontsize=12, align=(:left, :bottom), offset=(5, 5))
+    end
+    
+    ax.yscale = log10
+    ax.xscale = log10
+    
+    # Save the comparison plot
+    comparison_outfile = joinpath(outdir, "csv_model_comparison.pdf")
+    save(comparison_outfile, fig)
+    @info "Saved comparison plot to $comparison_outfile"
+    display(fig)
+    
+    # Print summary statistics
+    best_error_idx = argmin(a_posteriori_errors)
+    worst_error_idx = argmax(a_posteriori_errors)
+    fastest_idx = argmin(training_times)
+    slowest_idx = argmax(training_times)
+    
+    @info "Model Performance Summary:"
+    @info "Best Error: $(closure_names[best_error_idx]) = $(a_posteriori_errors[best_error_idx])"
+    @info "Worst Error: $(closure_names[worst_error_idx]) = $(a_posteriori_errors[worst_error_idx])"
+    @info "Fastest Training: $(closure_names[fastest_idx]) = $(training_times[fastest_idx])s"
+    @info "Slowest Training: $(closure_names[slowest_idx]) = $(training_times[slowest_idx])s"
+    
+    return fig
 end

@@ -153,7 +153,11 @@ function trainprior(;
         io_train = NS.create_io_arrays_priori(data_train, setup[1], device)
         io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device)
 
-        θ = device(copy(θ_start))
+        if closure_name == "FNO"
+            θ = device(θ_start[itotal])
+        else
+            θ = device(copy(θ_start))
+        end
         dataloader_prior = NS.create_dataloader_prior(
             io_train;
             batchsize = batchsize,

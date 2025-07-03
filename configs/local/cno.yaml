@@ -1,0 +1,62 @@
+docreatedata: true
+docomp: true
+ntrajectory: 8
+T: "Float64"
+dataproj: true
+projtest: false
+params:
+  D: 2
+  lims: [0.0, 1.0]
+  Re: 6000.0
+  tburn: 0.5
+  tsim: 5.0
+  savefreq: 50
+  ndns: 4096
+  nles: [64]
+  filters: ["FaceAverage()"]
+  icfunc: "(setup, psolver, rng) -> random_field(setup, T(0); kp=20, psolver, rng)"
+  method: "RKMethods.RK44(; T)"
+  bodyforce: "(dim, x, y, t) -> (dim == 1) * 5 * sinpi(8 * y)"
+  issteadybodyforce: true
+  processors: "(; log = timelogger(; nupdate=100))"
+  Δt: 0.00005
+seeds:
+  dns: 123456
+  θ_start: 234
+  prior: 345
+  post: 456
+closure:
+  name: "CNO"
+  type: cno
+  size: 64
+  cutoff: 100
+  channels: [2, 2]
+  activations:
+    [
+      "Lux.tanh_fast",
+      "identity",
+    ]
+  down_factors: [8, 4]
+  radii: [2, 2]
+  rng: "Xoshiro(seeds.θ_start)"
+priori:
+  dotrain: true
+  nepoch: 50
+  batchsize: 64
+  opt: "Adam(T(1.0e-3))"
+  do_plot: false
+  plot_train: false
+  lambda: 0.00005
+posteriori:
+  dotrain: true
+  projectorders: "(ProjectOrder.Last, )"
+  nepoch: 3000
+  opt: "Adam(T(1.0e-4))"
+  nunroll: 5
+  nunroll_valid: 10
+  nsamples: 5
+  dt: 0.0001
+  do_plot: false
+  plot_train: false
+  lambda: 0.00000005
+  sciml_solver: "RK4()"

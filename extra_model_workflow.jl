@@ -257,6 +257,10 @@ ACNN = Base.get_extension(CoupledNODE, :AttentionCNN)
 using ConvolutionalNeuralOperators
 using CoupledNODE:Base, CNO
 CNO = Base.get_extension(CoupledNODE, :CNO)
+# Load module for FNO
+using NeuralOperators
+using CoupledNODE:Base, FNO
+FNO = Base.get_extension(CoupledNODE, :FNO)
 
 closure, θ_start, st = NS.load_model(conf)
 

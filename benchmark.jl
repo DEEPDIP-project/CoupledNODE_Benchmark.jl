@@ -107,7 +107,6 @@ PLOT_STYLES = Dict(
 
 # Color list: high-contrast, colorblind-friendly palette
 colors_list = [
-    "#E41A1C", # Red
     "#377EB8", # Blue
     "#4DAF4A", # Green
     "#984EA3", # Purple
@@ -248,7 +247,7 @@ for key in keys(plot_labels)
                 color = colors_list[col_index]
 
                 data_index = CartesianIndex(ig, ifil, 1)  # projectorders = 1
-                data_index_v = CartesianIndex(ig, ifil, 1, 5)
+                data_index_v = CartesianIndex(ig, ifil, 1, 6)
 
                 if key == :prior_hist
                     plot_prior_traininghistory(
@@ -350,7 +349,7 @@ for key in keys(plot_labels)
         end
     end
     # Add legend
-    if !(key in (:energy_spectra, :dns_solution))
+    if !(key in (:energy_spectra, :dns_solution, :energy_evolution_hist))
         Legend(fig[:, end+1], ax)
     end
 
@@ -369,6 +368,11 @@ for key in keys(plot_labels)
     save("$compdir/$(key).pdf", fig)
     @info "Saved $compdir/$(key).pdf"
     display(fig)
+
 end
+
+csv_path = joinpath(outdir, "comparison/a_posteriori_errors.csv")
+plot_csv_comparison(csv_path, compdir, colors_list)
+
 
 @info "Script ended"
