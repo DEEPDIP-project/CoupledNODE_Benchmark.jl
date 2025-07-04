@@ -54,4 +54,5 @@ posteriori:
   do_plot: false
   plot_train: false
   lambda: 0.00000005
-  sciml_solver: "AutoTsit5(Rosenbrock23(autodiff = AutoFiniteDiff()))"
+    #  sciml_solver: "AutoTsit5(Rosenbrock23(autodiff = AutoFiniteDiff()))"
+  sciml_solver: "Rosenbrock23(autodiff = AutoFiniteDiff())"

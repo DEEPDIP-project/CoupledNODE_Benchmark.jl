@@ -52,7 +52,7 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-  nepoch: 600
+  nepoch: 2000
   opt: "Adam(T(1.0e-4))"
   nunroll: 5
   nunroll_valid: 10
