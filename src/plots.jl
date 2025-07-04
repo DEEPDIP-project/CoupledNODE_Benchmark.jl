@@ -120,6 +120,9 @@ function plot_posteriori_traininghistory(
 end
 
 function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES)
+    if closure_name == "INS.jl"
+        return
+    end
     # Load learned parameters
     divergence_dir = joinpath(outdir, closure_name, "history_nles=$(nles).jld2")
     if !ispath(divergence_dir)
@@ -228,7 +231,7 @@ function plot_energy_evolution(
     end
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
-    if closure_name == "INS.jl"
+    if closure_name == "INS.jl" && false
         label = "No closure "
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             lines!(
@@ -337,7 +340,7 @@ function plot_energy_evolution_hist(
     end
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
-    if closure_name == "INS.jl"
+    if closure_name == "INS.jl" && false
         label = "No closure "
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             _plot_histogram(
@@ -471,7 +474,11 @@ function plot_energy_spectra(
     num_of_models,
     color,
     PLOT_STYLES,
+    single_legend = false
 )
+    if closure_name == "INS.jl"
+        return
+    end
     # Load learned parameters
     energy_dir = joinpath(outdir, closure_name, "solutions_nles=$(nles).jld2")
     if !ispath(energy_dir)
@@ -488,9 +495,14 @@ function plot_energy_spectra(
 
     # Create a grid of plots and legends
     gtitle = fig[1, 1]  # Title of the figure
-    gplot = fig[2, 1]
-    gplot_ax = gplot[1, 1]   # Axis for each plot
-    gplot_leg = gplot[1, 2]  # The common legend for all plots
+    if single_legend
+        gplot = fig[1, 1]
+        gplot_ax = gplot[1, 1]
+    else
+        gplot = fig[2, 1]
+        gplot_ax = gplot[1, 1]   # Axis for each plot
+        gplot_leg = gplot[1, 2]  # The common legend for all plots
+    end
 
     Label(
         gtitle,
@@ -593,15 +605,14 @@ function plot_energy_spectra(
                 [prior_label, post_label],
                 labelsize = 8,
             )
+            # Add legend that is common for all plots
+            Legend(
+                gplot_leg,
+                [no_closure_plt, reference_plt, inertia_plt],
+                [no_closure_label, reference_label, inertia_label],
+                labelsize = 8,
+            )
         end
-
-        # Add legend that is common for all plots
-        Legend(
-            gplot_leg,
-            [no_closure_plt, reference_plt, inertia_plt],
-            [no_closure_label, reference_label, inertia_label],
-            labelsize = 8,
-        )
     end
 end
 
@@ -831,16 +842,24 @@ function _save_error_data_to_csv(error_data, closure_name, data_index; outdir, n
     
     # Get a posteriori (post) error data, handle case where it might be missing
     post_error = error_data.model_post[data_index]
+    if closure_name == "INS.jl"
+        post_error = error_data.smag[data_index]
+    end
     
     # Try to read training time data from training files
     training_time_post = nothing
     if nles !== nothing && Φ !== nothing && projectorders !== nothing
         try
             if closure_name == "INS.jl"
-                posttraining = namedtupleload(
-                    Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]),
+                #posttraining = namedtupleload(
+                #    Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorders[1]),
+                #)
+                #training_time_post = posttraining.single_stored_object.time_per_epoch
+
+                smagtrain= namedtupleload(
+                    joinpath(outdir, "smagorinski", "projectorder=Last_filter=FaceAverage()_nles=64.jld2"),
                 )
-                training_time_post = posttraining.single_stored_object.time_per_epoch
+                training_time_post = smagtrain.comptime/300
             else
                 posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
                 training_time_post = posttraining[1].time_per_epoch
@@ -890,6 +909,9 @@ function _save_error_data_to_csv(error_data, closure_name, data_index; outdir, n
     # Update or add the current closure_name, preserving existing values when new ones are not provided
     current_error = post_error
     current_training_time = training_time_post
+    if closure_name == "INS.jl"
+        closure_name = "Smagorinsky"
+    end
     
     if haskey(existing_data, closure_name)
         # Keep existing values if new ones are not provided (nothing/missing)
@@ -926,35 +948,37 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
 
     x = error_data.nts  # use time from error data
 
-    # Prior
-    scatterlines!(
-        ax,
-        x,
-        vec(error_data.model_prior);
-        label = "$closure_name prior (n = $nles)",
-        color = color,
-        linestyle = PLOT_STYLES[:prior].linestyle,
-        linewidth = PLOT_STYLES[:prior].linewidth,
-    )
-
-    # Post
-    scatterlines!(
-        ax,
-        x,
-        vec(error_data.model_post);
-        label = "$closure_name post (n = $nles)",
-        color = color,
-        linestyle = PLOT_STYLES[:post].linestyle,
-        linewidth = PLOT_STYLES[:post].linewidth,
-    )
+    if closure_name != "INS.jl"
+        # Prior
+        scatterlines!(
+            ax,
+            x,
+            vec(error_data.model_prior);
+            label = "$closure_name prior (n = $nles)",
+            color = color,
+            linestyle = PLOT_STYLES[:prior].linestyle,
+            linewidth = PLOT_STYLES[:prior].linewidth,
+        )
+        # Post
+        scatterlines!(
+            ax,
+            x,
+            vec(error_data.model_post);
+            label = "$closure_name post (n = $nles)",
+            color = color,
+            linestyle = PLOT_STYLES[:post].linestyle,
+            linewidth = PLOT_STYLES[:post].linewidth,
+        )
+    end
 
     # Smagorinsky (optional)
     if haskey(error_data, Symbol("smag"))
         scatterlines!(
             ax,
-            x,
-            vec(error_data.smag);
-            label = "$closure_name smag (n = $nles)",
+            x[1:end-2],
+            vec(error_data.smag[1:end-2]);
+            #label = "$closure_name smag (n = $nles)",
+            label = "Smagorinsky (n = $nles)",
             color = PLOT_STYLES[:smag].color,
             linestyle = PLOT_STYLES[:smag].linestyle,
             linewidth = PLOT_STYLES[:smag].linewidth,

@@ -20,9 +20,8 @@ ispath(compdir) || mkpath(compdir)
 using Glob
 exclude_patterns = ["att", "cno", "int", "back", "rk4", "cnn_1" ]
 exclude_patterns = ["att", "cno" ]
-include_patterns = ["base"] 
-include_patterns = []
-exclude_patterns = []
+exclude_patterns = ["rod", "ken", "ow" ]
+include_patterns = ["cnn_base", "ins"] 
 
 if !isempty(include_patterns)
     @warn "Including only configurations with patterns: $(include_patterns)"
@@ -354,9 +353,9 @@ for key in keys(plot_labels)
     end
 
     # Add xticks in barplot
-    if key in (:training_time, :training_comptime, :inference_time, :num_parameters, :eprior, :epost)
-        ax.xticks = (bar_positions, bar_labels)
-    end
+    #if key in (:training_time, :training_comptime, :inference_time, :num_parameters, :eprior, :epost)
+    #    ax.xticks = (bar_positions, bar_labels)
+    #end
 
     # Set log-log scale
     if key == :epost_vs_t
