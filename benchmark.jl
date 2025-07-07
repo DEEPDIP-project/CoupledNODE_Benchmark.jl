@@ -260,11 +260,19 @@ for key in keys(plot_labels)
                     )
 
                 elseif key == :divergence
+                    if closure_name == "INS.jl"
+                        @info "Skipping INS.jl for divergence plot"
+                        continue
+                    end
                     plot_divergence(
                         outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
                     )
 
                 elseif key == :energy_evolution
+                    if closure_name == "INS.jl"
+                        @info "Skipping INS.jl for energy evolution plot"
+                        continue
+                    end
                     plot_energy_evolution(
                         outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES
                     )
@@ -275,8 +283,15 @@ for key in keys(plot_labels)
                     )
 
                 elseif key== :energy_spectra
-                   num_of_models = length(list_confs)
-                   plot_energy_spectra(
+                    if closure_name == "INS.jl"
+                        @info "Skipping INS.jl for energy spectra plot"
+                        continue
+                    end
+                    # Plot energy spectra for all models in the same figure
+                    # This is done to compare the models in a single plot
+                    # and to avoid creating too many figures
+                    num_of_models = length(list_confs)
+                    plot_energy_spectra(
                         outdir, params, closure_name, nles, Φ, data_index, fig, i,
                         num_of_models, color, PLOT_STYLES
                     )
