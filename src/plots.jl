@@ -120,9 +120,6 @@ function plot_posteriori_traininghistory(
 end
 
 function plot_divergence(outdir, closure_name, nles, Φ, data_index, ax, color, PLOT_STYLES)
-    if closure_name == "INS.jl"
-        return
-    end
     # Load learned parameters
     divergence_dir = joinpath(outdir, closure_name, "history_nles=$(nles).jld2")
     if !ispath(divergence_dir)
@@ -231,7 +228,7 @@ function plot_energy_evolution(
     end
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
-    if closure_name == "INS.jl" && false
+    if closure_name == "INS.jl"
         label = "No closure "
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             lines!(
@@ -340,7 +337,7 @@ function plot_energy_evolution_hist(
     end
     energyhistory = namedtupleload(energy_dir).energyhistory;
 
-    if closure_name == "INS.jl" && false
+    if closure_name == "INS.jl"
         label = "No closure "
         if _missing_label(ax, label) && haskey(energyhistory, Symbol("nomodel"))
             _plot_histogram(
@@ -476,9 +473,6 @@ function plot_energy_spectra(
     PLOT_STYLES,
     single_legend = false
 )
-    if closure_name == "INS.jl"
-        return
-    end
     # Load learned parameters
     energy_dir = joinpath(outdir, closure_name, "solutions_nles=$(nles).jld2")
     if !ispath(energy_dir)
@@ -857,9 +851,9 @@ function _save_error_data_to_csv(error_data, closure_name, data_index; outdir, n
                 #training_time_post = posttraining.single_stored_object.time_per_epoch
 
                 smagtrain= namedtupleload(
-                    joinpath(outdir, "smagorinski", "projectorder=Last_filter=FaceAverage()_nles=64.jld2"),
+                    joinpath(outdir, "smagorinsky", "projectorder=Last_filter=FaceAverage()_nles=64.jld2"),
                 )
-                training_time_post = smagtrain.comptime/300
+                training_time_post = smagtrain[1].comptime/300
             else
                 posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
                 training_time_post = posttraining[1].time_per_epoch

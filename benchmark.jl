@@ -291,6 +291,10 @@ for key in keys(plot_labels)
                     # This is done to compare the models in a single plot
                     # and to avoid creating too many figures
                     num_of_models = length(list_confs)
+                    # If INS.jl was in the list of configurations, reduce the number of models
+                    if "INS.jl" in list_confs
+                        num_of_models -= 1
+                    end
                     plot_energy_spectra(
                         outdir, params, closure_name, nles, Φ, data_index, fig, i,
                         num_of_models, color, PLOT_STYLES
