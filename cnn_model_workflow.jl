@@ -241,7 +241,7 @@ closure_INS, θ_INS = NeuralClosure.cnn(;
     use_bias = conf["closure"]["use_bias"],
     rng = eval(Meta.parse(conf["closure"]["rng"])),
 )
-@assert device(θ_start) == device(θ_INS)
+@assert device(T.(θ_start)) == device(T.(θ_INS))
 
 @info "Initialized CNN with $(length(θ_start)) parameters"
 
@@ -288,6 +288,7 @@ let
     dotrain = conf["priori"]["dotrain"]
     nepoch = conf["priori"]["nepoch"]
     dotrain && trainprior(;
+        T,
         params,
         priorseed = seeds.prior,
         dns_seeds_train,
@@ -396,6 +397,7 @@ let
     dotrain = conf["posteriori"]["dotrain"]
     nepoch = conf["posteriori"]["nepoch"]
     dotrain && trainpost(;
+        T,
         params,
         projectorders,
         outdir,
@@ -505,6 +507,8 @@ let
         testset = create_io_arrays(data, setup)
         i = 1:min(100, size(testset.u, 4))
         u, c = testset.u[:, :, :, i], testset.c[:, :, :, i]
+        u = T.(u)
+        c = T.(c)
         testset = (u, c) |> device
         eprior.model_prior[ig, ifil] = compute_eprior(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)#[1]
         eprior.model_t_prior_inference[ig, ifil] = compute_t_prior_inference(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)
@@ -554,11 +558,11 @@ let
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         it = 1:length(sample.t)
         data = (;
-            u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
-            t = sample.t[it],
+            u = T.(selectdim(sample.u, ndims(sample.u), it) |> collect) |> device ,
+            t = T.(sample.t[it]),
         )
         epost.nts[:] = [data.t[i] for i in tsave]
-        @info epost.nts
+        @info "Times epost:" epost.nts
         tspan = (data.t[1], data.t[end])
         dt = T(conf["posteriori"]["dt"])
 
@@ -702,7 +706,7 @@ let
         psolver = default_psolver(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         ustart = selectdim(sample.u, ndims(sample.u), 1) |> collect |> device
-        T = eltype(ustart)
+        ustart = T.(ustart) # Convert to T
 
         # Shorter time for DIF
         t_DIF = T(1)
@@ -993,6 +997,7 @@ let
         psolver = default_psolver(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         ustart = selectdim(sample.u, ndims(sample.u), 1) |> collect
+        ustart = T.(ustart)
         t = sample.t
 
         function solve(ustart, tlims, closure_model, θ)

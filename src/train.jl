@@ -94,6 +94,7 @@ loadprior(outdir, closure_name, nles, filters) = map(
 
 "Train with a-priori loss."
 function trainprior(;
+    T = nothing,
     params,
     priorseed,
     dns_seeds_train,
@@ -137,7 +138,9 @@ function trainprior(;
         batchseed, validseed = splitseed(priorseed, 2) # Same seed for all training setups
 
         # Read the data in the format expected by the CoupledNODE
-        T = eltype(params.Re)
+        if T === nothing
+            T = typeof(params.Re)
+        end
         setup = []
         for nl in nles
             x = ntuple(α -> LinRange(T(0.0), T(1.0), nl + 1), params.D)
@@ -150,8 +153,8 @@ function trainprior(;
         data_train = load_data_set(outdir, nles, Φ, dns_seeds_train, dataproj)
         data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid, dataproj)
         @assert length(nles) == 1 "Only one nles for a-priori training"
-        io_train = NS.create_io_arrays_priori(data_train, setup[1], device)
-        io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device)
+        io_train = NS.create_io_arrays_priori(data_train, setup[1], device, T)
+        io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device, T)
 
         if closure_name == "FNO"
             θ = device(θ_start[itotal])
@@ -258,6 +261,7 @@ loadpost(outdir, closure_name, nles, filters, projectorders) = map(
 
 "Train with a-posteriori loss function."
 function trainpost(;
+    T = nothing,
     params,
     projectorders,
     outdir,
@@ -312,15 +316,17 @@ function trainpost(;
         checkfile = join(splitext(postfile), "_checkpoint")
         setup = getsetup(; params, nles)
         psolver = default_psolver(setup)
-        T = eltype(params.Re)
+        if T === nothing
+            T = typeof(params.Re)
+        end
 
         # Read the data in the format expected by the CoupledNODE
         data_train = load_data_set(outdir, nles, Φ, dns_seeds_train, dataproj)
         data_valid = load_data_set(outdir, nles, Φ, dns_seeds_valid, dataproj)
 
         NS = Base.get_extension(CoupledNODE, :NavierStokes)
-        io_train = NS.create_io_arrays_posteriori(data_train, setup, device)
-        io_valid = NS.create_io_arrays_posteriori(data_valid, setup, device)
+        io_train = NS.create_io_arrays_posteriori(data_train, setup, device, T)
+        io_valid = NS.create_io_arrays_posteriori(data_valid, setup, device, T)
         θ = device(copy(θ_start[itotal]))
         dataloader_post = NS.create_dataloader_posteriori(
             io_train;

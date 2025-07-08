@@ -471,7 +471,7 @@ function plot_energy_spectra(
     num_of_models,
     color,
     PLOT_STYLES,
-    single_legend = false
+    single_legend = true
 )
     # Load learned parameters
     energy_dir = joinpath(outdir, closure_name, "solutions_nles=$(nles).jld2")
@@ -490,7 +490,7 @@ function plot_energy_spectra(
     # Create a grid of plots and legends
     gtitle = fig[1, 1]  # Title of the figure
     if single_legend
-        gplot = fig[1, 1]
+        gplot = fig[2, 1]
         gplot_ax = gplot[1, 1]
     else
         gplot = fig[2, 1]
@@ -593,19 +593,28 @@ function plot_energy_spectra(
 
         # Add legend only for Prior and Post to each row
         if itime == length(solutions.t)
-            Legend(
-                gplot_ax[model_i, itime+1],
-                [prior_plt, post_plt],
-                [prior_label, post_label],
-                labelsize = 8,
-            )
-            # Add legend that is common for all plots
-            Legend(
-                gplot_leg,
-                [no_closure_plt, reference_plt, inertia_plt],
-                [no_closure_label, reference_label, inertia_label],
-                labelsize = 8,
-            )
+            if !single_legend
+                Legend(
+                    gplot_ax[model_i, itime+1],
+                    [prior_plt, post_plt],
+                    [prior_label, post_label],
+                    labelsize = 8,
+                )
+                # Add legend that is common for all plots
+                Legend(
+                    gplot_leg,
+                    [no_closure_plt, reference_plt, inertia_plt],
+                    [no_closure_label, reference_label, inertia_label],
+                    labelsize = 8,
+                )
+            else
+                Legend(
+                    gplot_ax[model_i, itime+1],
+                    [no_closure_plt, reference_plt, inertia_plt, prior_plt, post_plt],
+                    [no_closure_label, reference_label, inertia_label, prior_label, post_label],
+                    labelsize = 8,
+                )
+            end
         end
     end
 end
