@@ -156,7 +156,7 @@ function trainprior(;
         io_train = NS.create_io_arrays_priori(data_train, setup[1], device, T)
         io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device, T)
 
-        if closure_name == "FNO"
+        if contains(closure_name, "FNO")
             θ = θ_start
         else
             θ = device(copy(θ_start))
@@ -206,7 +206,7 @@ function trainprior(;
             plot_train = plot_train,
             figfile = figfile,
             device = device,
-            is_fno = closure_name == "FNO",
+            is_fno = contains(closure_name, "FNO")
         )
 
 

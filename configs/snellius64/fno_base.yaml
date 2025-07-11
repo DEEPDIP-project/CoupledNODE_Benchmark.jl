@@ -29,12 +29,12 @@ closure:
   name: "FNO"
   type: fno
   activation: Lux.gelu
-  modes: [4, 4]
-  channels: [2, 64,64,64, 2]
+  modes: [32, 32]
+  channels: [2, 64,128,64, 2]
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-  nepoch: 150
+  nepoch: 5000
   batchsize: 64
   opt: "Adam(T(1.0e-3))"
   do_plot: false

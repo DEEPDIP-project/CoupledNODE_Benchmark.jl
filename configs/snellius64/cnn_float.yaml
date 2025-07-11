@@ -35,8 +35,7 @@ closure:
   rng: "Xoshiro(seeds.θ_start)"
 priori:
   dotrain: true
-    #nepoch: 15000
-  nepoch: 1500
+  nepoch: 15000
   batchsize: 64
   opt: "Adam(T(1.0e-3))"
   do_plot: false
@@ -45,8 +44,7 @@ priori:
 posteriori:
   dotrain: true
   projectorders: "(ProjectOrder.Last, )"
-    #nepoch: 3000
-  nepoch: 30
+  nepoch: 3000
   opt: "Adam(T(1.0e-4))"
   nunroll: 5
   nunroll_valid: 10
