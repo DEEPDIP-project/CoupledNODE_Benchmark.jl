@@ -473,7 +473,7 @@ function plot_energy_spectra(
     PLOT_STYLES,
     single_legend = true
 )
-    if closure_name == "FNO"
+    if contains(closure_name, "FNO")
         @warn "FNO does not have energy spectra, skipping plot."
         return
     end
@@ -791,7 +791,7 @@ function plot_error(
     bar_width = 0.4
     bar_gap = 0.2
 
-    if closure_name == "FNO"
+    if contains(closure_name, "FNO")
         # Create a new NamedTuple with the missing fields for FNO
         error_data = merge(error_data, (
             nomodel = error_data.model_prior,
@@ -974,7 +974,7 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
 
     x = error_data.nts  # use time from error data
 
-    if closure_name == "FNO"
+    if contains(closure_name, "FNO")
         # Create a new NamedTuple with the missing fields for FNO
         error_data = merge(error_data, (
             nomodel = error_data.model_prior,

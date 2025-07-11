@@ -234,7 +234,7 @@ function trainprior(;
 
         θ = callbackstate.θmin # Use best θ instead of last θ
         results = (;
-#            θ = closure_name == "FNO" ? θ |> cpu_device() : Array(θ),
+#            θ = contains(closure_name, "FNO") ? θ |> cpu_device() : Array(θ),
             θ = θ |> cpu_device(),
             comptime = time() - starttime,
             callbackstate.lhist_val,
