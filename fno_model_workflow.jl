@@ -335,12 +335,49 @@ end
 end
 end
 
+# Params to fake a posteriori
+# (The current FNO can not be trained a-posteriori)
+projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
+nprojectorders = length(projectorders)
+@assert nprojectorders == 1 "Only DCF should be done"
+
+sensealg = haskey(conf["posteriori"], "sensealg") ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing
+sciml_solver = haskey(conf["posteriori"], "sciml_solver") ? eval(Meta.parse(conf["posteriori"]["sciml_solver"])) : nothing
+if sensealg !== nothing
+    @info "Using sensitivity algorithm: $sensealg"
+else
+    @info "No sensitivity algorithm specified"
+end
+if sciml_solver !== nothing
+    @info "Using SciML solver: $sciml_solver"
+else
+    @info "No SciML solver specified"
+end
+
 # Load learned parameters and training times
-priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
-θ_cnn_prior = map(p -> copyto!(copy(θ_start), p.θ), priortraining)
-@info "" θ_cnn_prior .|> extrema # Check that parameters are within reasonable bounds
+priorname = joinpath(
+    outdir,
+    "priortraining",
+    closure_name,
+    "filter=$(params.filters[1])_nles=$(params.nles[1]).jld2",
+)
+priortraining = load(priorname)
+θ_cnn_prior = priortraining["single_stored_object"].θ
+
+# Copy priorfile to postfile as placeholder
+postname = joinpath(
+    outdir,
+    "posttraining",
+    closure_name,
+    "projectorder=$(projectorders[1])_filter=$(params.filters[1])_nles=$(params.nles[1]).jld2",
+)
+ispath(dirname(postname)) || mkpath(dirname(postname))
+@info "Copying prior file to post file as placeholder"
+cp(priorname, postname)
+
 
 # Training times
+priortraining = loadprior(outdir, closure_name, params.nles, params.filters)
 map(p -> p.comptime, priortraining)
 map(p -> p.comptime, priortraining) |> vec .|> x -> round(x; digits = 1)
 map(p -> p.comptime, priortraining) |> sum |> x -> x / 60 # Minutes
@@ -394,8 +431,8 @@ end
 let
     eprior = (;
         nomodel = ones(T, length(params.nles)),
-        model_prior = zeros(T, size(θ_cnn_prior)),
-        model_t_prior_inference = zeros(T, size(θ_cnn_prior)),
+        model_prior = zeros(T, 1),
+        model_t_prior_inference = zeros(T, 1),
     )
     for (ifil, Φ) in enumerate(params.filters), (ig, nles) in enumerate(params.nles)
         @info "Computing a-priori errors" Φ nles
@@ -405,9 +442,11 @@ let
         testset = create_io_arrays(data, setup)
         i = 1:min(100, size(testset.u, 4))
         u, c = testset.u[:, :, :, i], testset.c[:, :, :, i]
+        u = T.(u)
+        c = T.(c)
         testset = (u, c) |> device
-        eprior.model_prior[ig, ifil] = compute_eprior(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)
-        eprior.model_t_prior_inference[ig, ifil] = compute_t_prior_inference(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)
+        eprior.model_prior[ig, ifil] = compute_eprior(closure, device(θ_cnn_prior), st, testset...)
+        eprior.model_t_prior_inference[ig, ifil] = compute_t_prior_inference(closure, device(θ_cnn_prior), st, testset...)
     end
     jldsave(joinpath(outdir_model, "eprior_nles=$(params.nles[1]).jld2"); eprior...)
 end
@@ -432,9 +471,7 @@ let
     s = (length(params.nles), length(params.filters), length(projectorders))
     swt = (length(params.nles), length(params.filters), length(projectorders), length(tsave))
     epost = (;
-        nomodel = zeros(T, swt),
         model_prior = zeros(T, swt),
-        model_post = zeros(T, swt),
         model_t_post_inference = zeros(T, s),
         nomodel_t_post_inference = zeros(T, s),
         nts = zeros(T, length(tsave)),
@@ -450,26 +487,19 @@ let
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         it = 1:length(sample.t)
         data = (;
-            u = selectdim(sample.u, ndims(sample.u), it) |> collect |> device,
-            t = sample.t[it],
+            u = T.(selectdim(sample.u, ndims(sample.u), it) |> collect) |> device,
+            t = T.(sample.t[it]),
         )
         epost.nts[:] = [data.t[i] for i in tsave]
         @info epost.nts
         tspan = (data.t[1], data.t[end])
         dt = T(conf["posteriori"]["dt"])
 
-        ## No model
-        dudt_nomod = NS.create_right_hand_side_inplace(
-            setup, psolver)
-        epost.nomodel[I, :], epost.nomodel_t_post_inference[I] = compute_epost(dudt_nomod, sciml_solver, θ_cnn_post[I].*0 , tspan, data, tsave, dt)
-        @info "Epost nomodel" epost.nomodel[I,:]
-        # with closure
+        # With closure
         dudt = NS.create_right_hand_side_with_closure_inplace(
             setup, psolver, closure, st)
-        epost.model_prior[I, :], _ = compute_epost(dudt, sciml_solver, device(θ_cnn_prior[ig, ifil]) , tspan, data, tsave, dt)
+        epost.model_prior[I, :], _ = compute_epost(dudt, sciml_solver, device(θ_cnn_prior) , tspan, data, tsave, dt)
         @info "Epost model_prior" epost.model_prior[I, :]
-        epost.model_post[I, :], epost.model_t_post_inference[I] = compute_epost(dudt, sciml_solver, device(θ_cnn_post[I]) , tspan, data, tsave, dt)
-        @info "Epost model_post" epost.model_post[I, :]
         clean()
     end
     jldsave(joinpath(outdir_model, "epost_nles=$(params.nles[1]).jld2"); epost...)
@@ -506,7 +536,6 @@ with_theme(; palette) do
         for (e, marker, label, color) in [
             (eprior.nomodel, :circle, "No closure", Cycled(1)),
             (eprior.model_prior[:, ifil], :utriangle, "Model (prior)", Cycled(2)),
-            (eprior.model_post[:, ifil, 1], :diamond, "Model (post, DCF)", Cycled(3)),
         ]
             scatterlines!(params.nles, e; marker, color, label)
         end
@@ -550,7 +579,6 @@ with_theme(; palette) do
         for (e, marker, label, color) in [
             (epost.nomodel, :circle, "No closure", Cycled(1)),
             (epost.model_prior, :rect, "Model (Lprior)", Cycled(3)),
-            (epost.model_post, :diamond, "Model (Lpost)", Cycled(4)),
         ]
             for (ifil, linestyle) in enumerate(linestyles)
                 ifil == 2 && (label = nothing)
@@ -596,10 +624,9 @@ let
         psolver = default_psolver(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         ustart = selectdim(sample.u, ndims(sample.u), 1) |> collect |> device
-        T = eltype(ustart)
+        ustart = T.(ustart)
 
-        θ_prior = device(θ_cnn_prior[ig, ifil])
-        θ_post = device(θ_cnn_post[I])
+        θ_prior = device(θ_cnn_prior)
 
         dt = T(conf["posteriori"]["dt"])
         tspan = (sample.t[1], sample.t[end])
@@ -625,19 +652,6 @@ let
                 )
         pred_prior = Array(collect(pred_prior.u))
 
-        prob_post = ODEProblem(dudt, x, tspan, θ_post)
-        pred_post =
-                solve(
-                    prob_post,
-                    Tsit5();
-                    u0 = x,
-                    p = θ_post,
-                    adaptive = true,
-                    saveat = tsave,
-                    dt = dt,
-                    tspan = tspan,
-                )
-        pred_post = Array(collect(pred_post.u))
 
         for it in 1:size(pred_prior, ndims(pred_prior))
             t = (it-1)*dt_sample
@@ -652,15 +666,6 @@ let
             e = total_kinetic_energy(u_prior, setup)
             push!(energyhistory[:model_prior][I], Point2f(t, e))
 
-            #u_post = selectdim(pred_post, ndims(pred_post), it) |> collect |> device
-            u_post = pred_post[it] |> collect |> device
-            IncompressibleNavierStokes.divergence!(div, u_post, setup)
-            d = view(div, setup.grid.Ip)
-            d = sum(abs2, d) / length(d)
-            d = sqrt(d)
-            push!(divergencehistory[:model_post][I], Point2f(t, d))
-            e = total_kinetic_energy(u_post, setup)
-            push!(energyhistory[:model_post][I], Point2f(t, e))
         end
     end
     jldsave(joinpath(outdir_model, "history_nles=$(params.nles[1]).jld2"); energyhistory, divergencehistory)
@@ -674,11 +679,8 @@ end
 
 # Check that energy is within reasonable bounds
 energyhistory.model_prior .|> extrema
-energyhistory.model_post .|> extrema
-
 # Check that divergence is within reasonable bounds
 divergencehistory.model_prior .|> extrema
-divergencehistory.model_post .|> extrema
 
 ########################################################################## #src
 
@@ -866,6 +868,7 @@ let
         psolver = default_psolver(setup)
         sample = namedtupleload(getdatafile(outdir, nles, Φ, dns_seeds_test[1]))
         ustart = selectdim(sample.u, ndims(sample.u), 1) |> collect
+        ustart = T.(ustart)
         t = sample.t
 
         function INS_solve(ustart, tlims, closure_model, θ)
@@ -905,8 +908,7 @@ let
 
         end
 
-        θ_prior = device(θ_cnn_prior[I])
-        θ_post = device(θ_cnn_post[I])
+        θ_prior = device(θ_cnn_prior)
 
         dt = T(conf["posteriori"]["dt"])
         tspan = (T(0), times[end]+T(1e-4))
@@ -928,23 +930,10 @@ let
                     tspan = tspan,
                     dt = dt,
             )
-        prob_post = ODEProblem(dudt, x, tspan, θ_post)
-        pred_post =
-            solve(
-                    prob_post,
-                    Tsit5(),
-                    u0 = x,
-                    p = θ_post,
-                    adaptive = true,
-                    saveat = times,
-                    tspan = tspan,
-                    dt = dt,
-            )
 
         for it in 1:length(times)
             # Compute fields
             utimes[it].model_prior[I] = collect(pred_prior.u[it]) |> CPUDevice()
-            utimes[it].model_post[I] = collect(pred_post.u[it]) |> CPUDevice()
         end
         clean()
     end
@@ -956,292 +945,3 @@ solutions = namedtupleload("$outdir_model/solutions_nles=$(params.nles[1]).jld2"
 
 ########################################################################## #src
 
-# ### Plot spectra
-#
-# Plot kinetic energy spectra.
-
-with_theme(; palette) do
-    doplot() || return
-    for (ifil, Φ) in enumerate(params.filters), (igrid, nles) in enumerate(params.nles)
-        @info "Plotting spectra" Φ nles
-        fig = Figure(; size = (800, 450))
-        fil = Φ isa FaceAverage ? "face-average" : "volume-average"
-        setup = getsetup(; params, nles)
-        (; Ip) = setup.grid
-        (; inds, κ, K) = IncompressibleNavierStokes.spectral_stuff(setup)
-        kmax = maximum(κ)
-        allaxes = []
-        for (iorder, projectorder) in enumerate(projectorders)
-            rowaxes = []
-            for (itime, t) in enumerate(solutions.t)
-                # Only first time for First
-                projectorder == ProjectOrder.First &&
-                    itime > solutions.itime_max_DIF &&
-                    continue
-
-                fields = map(
-                    k -> solutions.u[itime][k][igrid, ifil, iorder] |> device,
-                    [:ref, :nomodel, :model_prior, :model_post],
-                )
-                specs = map(fields) do u
-                    state = (; u)
-                    spec = observespectrum(state; setup)
-                    spec.ehat[]
-                end
-                ## Build inertial slope above energy
-                logkrange = [0.45 * log(kmax), 0.85 * log(kmax)]
-                krange = exp.(logkrange)
-                slope, slopelabel = -T(3), L"$\kappa^{-3}$"
-                slopeconst = maximum(specs[1] ./ κ .^ slope)
-                offset = 3
-                inertia = offset .* slopeconst .* krange .^ slope
-                ## Nice ticks
-                logmax = round(Int, log2(kmax + 1))
-                # xticks = T(2) .^ (0:logmax)
-                if logmax > 5
-                    xticks = T[1, 4, 16, 64, 256]
-                else
-                    xticks = T[1, 2, 4, 8, 16, 32]
-                end
-                ## Make plot
-                irow = projectorder == ProjectOrder.First ? 2 : 1
-                subfig = fig[irow, itime]
-                ax = Axis(
-                    subfig;
-                    xticks,
-                    xlabel = "κ",
-                    xlabelvisible = irow == 2,
-                    xticksvisible = irow == 2,
-                    xticklabelsvisible = irow == 2,
-                    ylabel = projectorder == ProjectOrder.First ? "DIF" : "DCF",
-                    ylabelfont = :bold,
-                    ylabelvisible = itime == 1,
-                    yticksvisible = itime == 1,
-                    yticklabelsvisible = itime == 1,
-                    xscale = log2,
-                    yscale = log10,
-                    limits = (1, kmax, T(1e-8), T(1)),
-                    title = irow == 1 ? "t = $(round(t; digits = 1))" : "",
-                )
-
-                # Plot zoom-in box
-                k1, k2 = klims = extrema(κ)
-                center = 0.8
-                dk = 0.025
-                logklims = (center - dk) * log(k2), (center + dk) * log(k2)
-                k1, k2 = klims = exp.(logklims)
-                i1 = findfirst(>(k1), κ)
-                i2 = findfirst(>(k2), κ)
-                elims = specs[1][i1], specs[1][i2]
-                loge1, loge2 = log.(elims)
-                de = (loge1 - loge2) * 0.05
-                logelims = loge1 + de, loge2 - de
-                elims = exp.(logelims)
-                box = [
-                    Point2f(klims[1], elims[1]),
-                    Point2f(klims[2], elims[1]),
-                    Point2f(klims[2], elims[2]),
-                    Point2f(klims[1], elims[2]),
-                    Point2f(klims[1], elims[1]),
-                ]
-                ax_zoom = Axis(
-                    subfig;
-                    width = Relative(0.45),
-                    height = Relative(0.4),
-                    halign = 0.05,
-                    valign = 0.05,
-                    limits = (klims..., reverse(elims)...),
-                    xscale = log10,
-                    yscale = log10,
-                    xticksvisible = false,
-                    xticklabelsvisible = false,
-                    xgridvisible = false,
-                    yticksvisible = false,
-                    yticklabelsvisible = false,
-                    ygridvisible = false,
-                    backgroundcolor = :white,
-                )
-                # https://discourse.julialang.org/t/makie-inset-axes-and-their-drawing-order/60987/5
-                translate!(ax_zoom.scene, 0, 0, 10)
-                translate!(ax_zoom.elements[:background], 0, 0, 9)
-
-                # Plot lines in both axes
-                for ax in (ax, ax_zoom)
-                    lines!(ax, κ, specs[2]; color = Cycled(1), label = "No model")
-                    lines!(ax, κ, specs[3]; color = Cycled(3), label = "CNN (prior)")
-                    lines!(ax, κ, specs[4]; color = Cycled(4), label = "CNN (post)")
-                    lines!(
-                        ax,
-                        κ,
-                        specs[1];
-                        color = Cycled(1),
-                        linestyle = :dash,
-                        label = "Reference",
-                    )
-                    lines!(
-                        ax,
-                        krange,
-                        inertia;
-                        color = Cycled(1),
-                        label = slopelabel,
-                        linestyle = :dot,
-                    )
-                end
-
-                # Show box in main plot
-                lines!(ax, box; color = :black)
-
-                # axislegend(ax; position = :lb)
-                autolimits!(ax)
-
-                push!(allaxes, ax)
-                push!(rowaxes, ax)
-            end
-            linkaxes!(rowaxes...)
-        end
-        # linkaxes!(allaxes...)
-        # linkaxes!(filter(x -> x isa Axis, fig.content)...)
-        Legend(
-            fig[2, solutions.itime_max_DIF+1:end],
-            fig.content[1];
-            tellwidth = false,
-            tellheight = false,
-            # width = Auto(false),
-            # height = Auto(false),
-            # halign = :left,
-            # framevisible = false,
-        )
-        Label(
-            fig[0, 1:end],
-            "Energy spectra ($fil, n = $nles)";
-            valign = :bottom,
-            font = :bold,
-        )
-        rowgap!(fig.layout, 10)
-        colgap!(fig.layout, 10)
-        # ylims!(ax, (T(1e-3), T(0.35)))
-        specdir = "$plotdir/spectra/"
-        ispath(specdir) || mkpath(specdir)
-        name = splatfileparts(; filter = Φ, nles)
-        save("$specdir/$name.pdf", fig)
-        display(fig)
-    end
-end
-
-########################################################################## #src
-
-# ### Plot fields
-
-# Export to PNG, otherwise each volume gets represented
-# as a separate rectangle in the PDF
-# (takes time to load in the article PDF)
-if !isdefined(Main, :GLMakie)
-    @warn "GLMakie not installed, so the field plots will not be generated"
-    exit(0)
-end
-using GLMakie
-GLMakie.activate!()
-
-with_theme(; palette) do
-    doplot() || return
-    ## Reference box for eddy comparison
-    x1 = 0.3
-    x2 = 0.5
-    y1 = 0.5
-    y2 = 0.7
-    box = [
-        Point2f(x1, y1),
-        Point2f(x2, y1),
-        Point2f(x2, y2),
-        Point2f(x1, y2),
-        Point2f(x1, y1),
-    ]
-    for (ifil, Φ) in enumerate(params.filters)
-        Φ isa FaceAverage || continue
-        # fig = Figure(; size = (710, 400))
-        fig = Figure(; size = (770, 360))
-        irow = 0
-        itime = 3
-        for (igrid, nles) in enumerate(params.nles)
-            itime == 1 && (nles in [32, 64] || continue)
-            itime == 3 && (nles in [64, 128] || continue)
-            # nles in [128, 256] || continue
-            irow += 1
-            setup = getsetup(; params, nles)
-            (; Ip, xp) = setup.grid
-            xplot = xp[1][2:end-1], xp[2][2:end-1]
-            xplot = xplot .|> Array
-            # lesmodel = iorder == 1 ? "DIF" : "DCF"
-            # fig = fieldplot(
-            #     (; u, temp = nothing, t = T(0));
-            #     setup,
-            #     title,
-            #     docolorbar = false,
-            #     size = (500, 500),
-            # )
-
-            utime = solutions.u[itime]
-            icol = 0
-
-            for (u, title) in [
-                (utime.nomodel[igrid, ifil, 2], "No closure"),
-                (utime.cnn_post[igrid, ifil, 1], "CNN (post, DIF)"),
-                (utime.cnn_post[igrid, ifil, 2], "CNN (post, DCF)"),
-                (utime.ref[igrid, ifil, 2], "Reference"),
-            ]
-                icol += 1
-                u = device(u)
-                w = vorticity(u, setup)
-                w = interpolate_ω_p(w, setup)
-                w = w[Ip] |> Array
-                colorrange = get_lims(w)
-                ax = Axis(
-                    fig[irow, icol];
-                    title,
-                    xticksvisible = false,
-                    xticklabelsvisible = false,
-                    yticksvisible = false,
-                    yticklabelsvisible = false,
-                    ylabel = "n = $nles",
-                    ylabelvisible = icol == 1,
-                    titlevisible = irow == 1,
-                    aspect = DataAspect(),
-                )
-                heatmap!(ax, xplot..., w; colorrange)
-                lines!(ax, box; linewidth = 3, color = Cycled(2)) # Red in palette
-            end
-        end
-        fil = Φ isa FaceAverage ? "face-average" : "volume-average"
-        tlab = round(solutions.t[itime]; digits = 1)
-        Label(fig[0, 1:end], "Vorticity ($fil, t = $tlab)"; valign = :bottom, font = :bold)
-        colgap!(fig.layout, 10)
-        rowgap!(fig.layout, 10)
-        display(fig)
-        path = "$plotdir/les_fields"
-        ispath(path) || mkpath(path)
-        name = splatfileparts(; itime, filter = Φ)
-        name = joinpath(path, name)
-        fname = "$(name).png"
-        save(fname, fig)
-    end
-end
-
-# Plot vorticity
-let
-    doplot() || return
-    nles = 32
-    sample = namedtupleload(getdatafile(outdir, nles, FaceAverage(), dns_seeds_test[1]))
-    setup = getsetup(; params, nles)
-    #u = sample.u[1] |> device
-    u = selectdim(sample.u, ndims(sample.u), 1) |> collect |> device
-    w = vorticity(u, setup) |> Array |> Observable
-    title = sample.t[1] |> string |> Observable
-    fig = heatmap(w; axis = (; title))
-    for i = 1:1:length(sample.t)
-        u = selectdim(sample.u, ndims(sample.u), i) |> collect |> device
-        w[] = vorticity(u, setup) |> Array
-        title[] = "t = $(round(sample.t[i]; digits = 2))"
-        display(fig)
-        sleep(0.05)
-    end
-end

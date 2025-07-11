@@ -473,6 +473,11 @@ function plot_energy_spectra(
     PLOT_STYLES,
     single_legend = true
 )
+    if closure_name == "FNO"
+        @warn "FNO does not have energy spectra, skipping plot."
+        return
+    end
+
     # Load learned parameters
     energy_dir = joinpath(outdir, closure_name, "solutions_nles=$(nles).jld2")
     if !ispath(energy_dir)
@@ -786,6 +791,14 @@ function plot_error(
     bar_width = 0.4
     bar_gap = 0.2
 
+    if closure_name == "FNO"
+        # Create a new NamedTuple with the missing fields for FNO
+        error_data = merge(error_data, (
+            nomodel = error_data.model_prior,
+            model_post = error_data.model_prior
+        ))
+    end
+
     # No model
     label = "No closure (n = $nles)"
     x_no_model = [0]
@@ -850,7 +863,7 @@ function _save_error_data_to_csv(error_data, closure_name, data_index; outdir, n
     end
     
     # Try to read training time data from training files
-    training_time_post = nothing
+    training_time_post, training_time_prior = nothing, nothing
     if nles !== nothing && Φ !== nothing && projectorders !== nothing
         try
             if closure_name == "INS.jl"
@@ -866,6 +879,11 @@ function _save_error_data_to_csv(error_data, closure_name, data_index; outdir, n
             else
                 posttraining = loadpost(outdir, closure_name, [nles], [Φ], projectorders)
                 training_time_post = posttraining[1].time_per_epoch
+                if closure_name == "Base"
+                    priortraining = loadprior(outdir, closure_name, [nles], [Φ])
+                    training_time_prior = priortraining[1].time_per_epoch
+                    training_time_prior = round(training_time_prior; digits = 3)
+                end
             end
             training_time_post = round(training_time_post; digits = 3)
         catch ex
@@ -928,6 +946,11 @@ function _save_error_data_to_csv(error_data, closure_name, data_index; outdir, n
     
     existing_data[closure_name] = (current_error, current_training_time)
     
+    if closure_name == "Base"
+        # Also save the apriori error
+        existing_data["A-priori"] = (error_data.model_prior[data_index], training_time_prior)
+    end
+
     # Write the complete data back to file
     open(csv_file, "w") do io
         # Write header
@@ -950,6 +973,14 @@ function plot_epost_vs_t(error_file, closure_name, nles, ax, color, PLOT_STYLES)
     error_data = namedtupleload(error_file)
 
     x = error_data.nts  # use time from error data
+
+    if closure_name == "FNO"
+        # Create a new NamedTuple with the missing fields for FNO
+        error_data = merge(error_data, (
+            nomodel = error_data.model_prior,
+            model_post = error_data.model_prior
+        ))
+    end
 
     if closure_name != "INS.jl"
         # Prior
