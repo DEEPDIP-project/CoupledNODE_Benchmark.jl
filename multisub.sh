@@ -27,4 +27,5 @@
 
 #sbatch -J att job_a100_extra.sh configs/snellius64/att_base.yaml
 #sbatch -J cno job_a100_extra.sh configs/snellius64/cno_base.yaml
-sbatch -J fno job_a100_fno.sh configs/snellius64/fno_base.yaml
+#sbatch -J fno job_a100_fno.sh configs/snellius64/fno_base.yaml
+sbatch -J fno job_a100_fno.sh configs/snellius64/fno_high.yaml
