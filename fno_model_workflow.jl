@@ -382,129 +382,6 @@ with_theme(; palette) do
     display(fig)
 end
 
-########################################################################## #src
-
-# ### A-posteriori training
-#
-# Train one set of CNN parameters for each
-# projection order, filter type and grid size.
-# Use the same batch selection random seed for each training setup.
-# Save parameters to disk after each combination.
-# Plot training progress (for a validation data batch).
-#
-# [INS] The time stepper `RKProject` allows for choosing when to project.
-# [CNODE] Only DCF (last) is supported since it appears to be the best one.
-
-projectorders = eval(Meta.parse(conf["posteriori"]["projectorders"]))
-nprojectorders = length(projectorders)
-@assert nprojectorders == 1 "Only DCF should be done"
-
-sensealg = haskey(conf["posteriori"], "sensealg") ? eval(Meta.parse(conf["posteriori"]["sensealg"])) : nothing
-sciml_solver = haskey(conf["posteriori"], "sciml_solver") ? eval(Meta.parse(conf["posteriori"]["sciml_solver"])) : nothing
-if sensealg !== nothing
-    @info "Using sensitivity algorithm: $sensealg"
-else
-    @info "No sensitivity algorithm specified"
-end
-if sciml_solver !== nothing
-    @info "Using SciML solver: $sciml_solver"
-else
-    @info "No SciML solver specified"
-end
-
-# Train
-for i = 1:ntrajectory
-	if i%numtasks == taskid -1
-let
-    dotrain = conf["posteriori"]["dotrain"]
-    nepoch = conf["posteriori"]["nepoch"]
-    dotrain && trainpost(;
-        T,
-        params,
-        projectorders,
-        outdir,
-        plotdir,
-        taskid = i,
-        postseed = seeds.post,
-        dns_seeds_train,
-        dns_seeds_valid,
-        nunroll = conf["posteriori"]["nunroll"],
-        nsamples = conf["posteriori"]["nsamples"],
-        dt = T(conf["posteriori"]["dt"]),
-        closure,
-        closure_name,
-        θ_start = θ_cnn_prior,
-        st,
-        opt = eval(Meta.parse(conf["posteriori"]["opt"])),
-        nunroll_valid = conf["posteriori"]["nunroll_valid"],
-        nepoch,
-        do_plot = conf["posteriori"]["do_plot"],
-        plot_train = conf["posteriori"]["plot_train"],
-        sensealg = sensealg,
-        sciml_solver = sciml_solver,
-        dataproj = conf["dataproj"],
-        λ = haskey(conf["posteriori"], "λ") ? eval(Meta.parse(conf["posteriori"]["λ"])) : nothing,
-        multishoot_nt = haskey(conf["posteriori"], "multishoot_nt") ? conf["posteriori"]["multishoot_nt"] : 0,
-        ad_type = haskey(conf["posteriori"], "ad_type") ? eval(Meta.parse(conf["posteriori"]["ad_type"])) : Optimization.AutoZygote(),
-    )
-end
-end
-end
-
-# Load learned parameters and training times
-
-posttraining = loadpost(outdir, closure_name, params.nles, params.filters, projectorders)
-θ_cnn_post = map(p -> copyto!(copy(θ_start), p.θ), posttraining)
-@info "" θ_cnn_post .|> extrema # Check that parameters are within reasonable bounds
-
-# Training times
-map(p -> p.comptime, posttraining) ./ 60
-map(p -> p.comptime, posttraining) |> sum |> x -> x / 60
-map(p -> p.comptime, posttraining) |> x -> reshape(x, :, nprojectorders) .|> x -> round(x; digits = 1)
-
-# ## Plot a-posteriori training history
-
-with_theme(; palette) do
-    doplot() || return
-    fig = Figure(; size = (950, 400))
-    for (iorder, projectorder) in enumerate(projectorders)
-        axes = []
-        for (ig, nles) in enumerate(params.nles)
-            ax = Axis(
-                fig[iorder, ig];
-                title = "n = $(nles)",
-                xlabel = "Iteration",
-                ylabel = projectorder == ProjectOrder.First ? "DIF" : "DCF",
-                ylabelvisible = ig == 1,
-                ylabelfont = :bold,
-                titlevisible = iorder == 1,
-                xlabelvisible = iorder == 2,
-                xticksvisible = iorder == 2,
-                xticklabelsvisible = iorder == 2,
-            )
-            for (ifil, Φ) in enumerate(params.filters)
-                postfile = Benchmark.getpostfile(outdir, closure_name, nles, Φ, projectorder)
-                check = namedtupleload(postfile)
-                # print the keys of the checkpoint
-                (; lhist_val) = check[1]
-                label = Φ isa FaceAverage ? "FA" : "VA"
-                lines!(ax, lhist_val; color = Cycled(ifil + 1), label)
-            end
-            ig == 4 && iorder == 1 && axislegend(ax)
-            push!(axes, ax)
-        end
-        # linkaxes!(axes...)
-    end
-    # axes = filter(x -> x isa Axis, fig.content)
-    # linkaxes!(axes...)
-    # Legend(fig[:, end+1], filter(x -> x isa Axis, fig.content)[1])
-    Label(fig[0, :], "A-posteriori error"; valign = :bottom, font = :bold)
-    rowgap!(fig.layout, 10)
-    figdir = joinpath(plotdir, "posttraining")
-    ispath(figdir) || mkpath(figdir)
-    save("$figdir/validationerror.pdf", fig)
-    display(fig)
-end
 
 ########################################################################## #src
 
@@ -518,7 +395,6 @@ let
     eprior = (;
         nomodel = ones(T, length(params.nles)),
         model_prior = zeros(T, size(θ_cnn_prior)),
-        model_post = zeros(T, size(θ_cnn_post)),
         model_t_prior_inference = zeros(T, size(θ_cnn_prior)),
     )
     for (ifil, Φ) in enumerate(params.filters), (ig, nles) in enumerate(params.nles)
@@ -532,9 +408,6 @@ let
         testset = (u, c) |> device
         eprior.model_prior[ig, ifil] = compute_eprior(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)
         eprior.model_t_prior_inference[ig, ifil] = compute_t_prior_inference(closure, device(θ_cnn_prior[ig, ifil]), st, testset...)
-        for iorder in eachindex(projectorders)
-            eprior.model_post[ig, ifil, iorder] = compute_eprior(closure, device(θ_cnn_post[ig, ifil, iorder]), st, testset...)
-        end
     end
     jldsave(joinpath(outdir_model, "eprior_nles=$(params.nles[1]).jld2"); eprior...)
 end

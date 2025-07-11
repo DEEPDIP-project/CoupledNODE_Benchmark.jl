@@ -157,7 +157,7 @@ function trainprior(;
         io_valid = NS.create_io_arrays_priori(data_valid, setup[1], device, T)
 
         if closure_name == "FNO"
-            θ = device(θ_start[itotal])
+            θ = θ_start
         else
             θ = device(copy(θ_start))
         end
@@ -206,6 +206,7 @@ function trainprior(;
             plot_train = plot_train,
             figfile = figfile,
             device = device,
+            is_fno = closure_name == "FNO",
         )
 
 
@@ -233,7 +234,8 @@ function trainprior(;
 
         θ = callbackstate.θmin # Use best θ instead of last θ
         results = (;
-            θ = Array(θ),
+#            θ = closure_name == "FNO" ? θ |> cpu_device() : Array(θ),
+            θ = θ |> cpu_device(),
             comptime = time() - starttime,
             callbackstate.lhist_val,
             callbackstate.lhist_nomodel,
