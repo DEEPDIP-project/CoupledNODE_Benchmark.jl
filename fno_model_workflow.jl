@@ -373,7 +373,7 @@ postname = joinpath(
 )
 ispath(dirname(postname)) || mkpath(dirname(postname))
 @info "Copying prior file to post file as placeholder"
-cp(priorname, postname)
+cp(priorname, postname, force=true)
 
 
 # Training times

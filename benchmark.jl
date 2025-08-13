@@ -21,7 +21,7 @@ using Glob
 exclude_patterns = ["att", "cno", "int", "back", "rk4", "cnn_1" ]
 exclude_patterns = ["att", "cno" ]
 exclude_patterns = ["rod", "ken", "ow", "tsi", "back" ]
-include_patterns = ["cnn_base", "ins"] 
+#include_patterns = ["cnn_base", "ins"] 
 include_patterns = []
 
 if !isempty(include_patterns)
@@ -383,10 +383,16 @@ for key in keys(plot_labels)
         ax.xscale = log10
     end
 
+    # Make labels significantly larger
+    for label in bar_labels
+        label.fontsize *= 1.5
+    end
+
     # Display and save the figure
     save("$compdir/$(key).pdf", fig)
     @info "Saved $compdir/$(key).pdf"
     display(fig)
+
 
 end
 
