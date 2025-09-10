@@ -45,10 +45,17 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 [weakdeps]
 GLMakie = "e9467ef8-e4e7-5192-8a1a-b1aee30e663a"
 
-[sources]
-AttentionLayer = {rev = "main", url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"}
-ConvolutionalNeuralOperators = {rev = "main", url = "https://github.com/DEEPDIP-project/ConvolutionalNeuralOperators.jl.git"}
-NeuralClosure = {rev = "main", url = "https://github.com/DEEPDIP-project/NeuralClosure.jl.git"}
+[sources.AttentionLayer]
+rev = "main"
+url = "https://github.com/DEEPDIP-project/AttentionLayer.jl.git"
+
+[sources.ConvolutionalNeuralOperators]
+rev = "main"
+url = "https://github.com/DEEPDIP-project/ConvolutionalNeuralOperators.jl.git"
+
+[sources.NeuralClosure]
+rev = "main"
+url = "https://github.com/DEEPDIP-project/NeuralClosure.jl.git"
 
 [compat]
 Accessors = "0.1"
@@ -77,7 +84,7 @@ LuxCUDA = "0.3"
 MLUtils = "0.4"
 NNlib = "0.9"
 NeuralClosure = "1.0.0"
-NeuralOperators = "0.5.3"
+NeuralOperators = "0.5.3, 0.6"
 Observables = "0.5"
 OpenSSL_jll = "3.0.13"
 Optimisers = "0.4"
